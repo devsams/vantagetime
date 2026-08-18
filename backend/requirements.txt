@@ -1,0 +1,6 @@
+google-adk
+google-genai
+parallel-web
+python-dotenv
+requests
+uvicorn[standard]
