@@ -31,7 +31,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${anton.variable} ${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {/* Decorative film-grain texture, fixed over the whole app —
+            see .grain-overlay in globals.css. Purely visual: it's
+            pointer-events-none so nothing underneath is affected. */}
+        <div className="grain-overlay" aria-hidden="true" />
+        {children}
+      </body>
     </html>
   );
 }

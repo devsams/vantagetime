@@ -17,7 +17,7 @@ export default function StageHeader({
     <div className="mb-8 flex items-start justify-between gap-6">
       <div>
         <h2
-          className="text-3xl uppercase leading-none"
+          className="title-gradient text-3xl uppercase leading-none"
           style={{ fontFamily: "var(--font-display)" }}
         >
           {String(index).padStart(2, "0")} · {title}

@@ -203,6 +203,175 @@ SCRIPT_BREAKDOWN_INSTRUCTION = (
 )
 
 # ---------------------------------------------------------------------------
+# Roster Extraction Agent — the "I have production data" entry point.
+# Same normalized output shape (RosterImportResult) that the deterministic
+# CSV importer produces (see backend/common/roster_import.py), so the
+# frontend never needs to know or care whether a roster came from a typed
+# spreadsheet or an LLM reading a messier document — both converge on the
+# exact same people[]/locations[]/errors[] JSON before anything downstream
+# touches it.
+# ---------------------------------------------------------------------------
+
+_ROSTER_SCHEMA = """\
+JSON SHAPE (all fields required unless noted):
+{
+  "people": [
+    {
+      "name": string,
+      "type": string,              // "actor" | "crew" | "other" — "other" is rented gear/vehicles/outside vendors, never a person type of last resort
+      "role": string,               // character name for an actor, job title for crew, item description for "other" — empty string if genuinely not stated
+      "location": string,           // a location name this person is tied to, if the document says so — empty string otherwise, never guessed
+      "availability_start": string, // "YYYY-MM-DD", empty string if not stated as a real date or ambiguous (e.g. "early September" is NOT a date)
+      "availability_end": string,   // "YYYY-MM-DD", same rule
+      "email": string,              // empty string if not present
+      "priority": boolean           // true only if the document explicitly marks this person as essential/locked/must-have — default false
+    }
+  ],
+  "locations": [
+    {
+      "name": string,
+      "availability_start": string, // "YYYY-MM-DD", empty if not a real stated date
+      "availability_end": string
+    }
+  ],
+  "errors": []                      // caveats about what you couldn't extract confidently — e.g. "Availability for 'Amit Kumar' was written as 'early Sept', not a real date, so it was left blank." Empty array if nothing to flag.
+}
+"""
+
+_ROSTER_FORMAT_RULES = (
+    "STRICT FORMATTING RULES (violations break downstream scheduling, "
+    "same as every other stage in this app):\n"
+    "- Respond ONLY with the JSON object described below — never prose, "
+    "never markdown, never a code fence, never text before or after the "
+    "JSON.\n"
+    "- This is a PRODUCTION-DATA document (casting list, crew list, "
+    "location list, production bible, previous call sheet, shooting "
+    "schedule) — NOT a screenplay. Do not attempt scene breakdown, do "
+    "not invent scenes, do not output anything about scenes/props/"
+    "int-ext. Your only job is people and locations.\n"
+    "- A date field is ONLY ever a real ISO date (\"YYYY-MM-DD\"). If "
+    "the document gives a vague or relative range (\"early September\", "
+    "\"first two weeks\", \"TBD\") rather than actual calendar dates, "
+    "leave both start and end as empty strings and add one sentence "
+    "to \"errors\" explaining what was too vague to use — never invent "
+    "a specific date to fill the gap, and never assume a year that "
+    "isn't stated or clearly implied by context (e.g. a dated cover "
+    "page) elsewhere in the document.\n"
+    "- \"type\" must be exactly \"actor\", \"crew\", or \"other\" for "
+    "every person — if a row/entry's role is ambiguous, use your best "
+    "judgment from context (a named character with dialogue is an "
+    "actor; a department head or technician is crew; a vehicle, rental "
+    "item, or vendor is \"other\") rather than skipping it, but if you "
+    "genuinely cannot tell what an entry even IS, leave it out and "
+    "explain why in \"errors\" instead of guessing at a type.\n"
+    "- Every distinct location mentioned anywhere in the document goes "
+    "in \"locations\" once each, even if it only ever shows up as text "
+    "in someone's \"location\" field — locations and people are "
+    "separate lists in the output, never merge them.\n"
+    "- You'll often see a single sheet mixing several row categories "
+    "together under a column like \"Category\" — e.g. CAST, CREW, "
+    "LOCATION, SCENE, PROP, VEHICLE all in one table, with a shared "
+    "\"Name / ID\" column and a catch-all column like \"Role / Location "
+    "/ Character\" whose meaning depends on that row's category. Map "
+    "each category using its real meaning, not the literal header "
+    "text: CAST/ACTOR rows -> type \"actor\" (the catch-all column is "
+    "their character); CREW/any department (Camera, Sound, Lighting, "
+    "Art, Production, Makeup, Wardrobe, etc.) -> type \"crew\" (the "
+    "catch-all column is their job title); VEHICLE or rented-equipment "
+    "rows -> type \"other\"; LOCATION rows -> the \"locations\" array, "
+    "not \"people\". SCENE and PROP rows aren't a person or a location "
+    "— skip them entirely, they're not part of this document's job. A "
+    "count like \"2 Extras\" or \"3 PAs\" in a name column is a real "
+    "headcount, not a literal name — either expand it into that many "
+    "numbered entries (\"Extra 1\", \"Extra 2\") or keep it as one "
+    "entry and note the headcount in \"role\", whichever keeps the "
+    "output honest about how many distinct people there actually are; "
+    "don't silently collapse it to one person.\n"
+    "- A combined \"Availability / Time\" column that reads like "
+    "\"07:00–19:00\" is a CALL TIME, not an availability date range — "
+    "leave availability_start/end empty for it rather than "
+    "misreading a time-of-day as a date.\n"
+    "- If the document is genuinely unreadable, empty, or clearly not "
+    "production data at all, return empty \"people\"/\"locations\" "
+    "arrays and put one clear sentence in \"errors\" saying so — never "
+    "fabricate a roster to have something to return."
+)
+
+_ROSTER_EXAMPLE = """\
+WORKED EXAMPLE (a short excerpt from a casting/crew list PDF):
+{
+  "people": [
+    {
+      "name": "Raj Malhotra",
+      "type": "actor",
+      "role": "Arjun",
+      "location": "Mumbai Apartment",
+      "availability_start": "2026-09-03",
+      "availability_end": "2026-09-08",
+      "email": "raj@example.com",
+      "priority": true
+    },
+    {
+      "name": "Priya Shah",
+      "type": "actor",
+      "role": "Maya",
+      "location": "Mumbai Apartment",
+      "availability_start": "2026-09-05",
+      "availability_end": "2026-09-08",
+      "email": "priya@example.com",
+      "priority": false
+    },
+    {
+      "name": "Amit Kumar",
+      "type": "crew",
+      "role": "DOP",
+      "location": "Mumbai Apartment",
+      "availability_start": "",
+      "availability_end": "",
+      "email": "amit@example.com",
+      "priority": false
+    }
+  ],
+  "locations": [
+    { "name": "Mumbai Apartment", "availability_start": "2026-09-01", "availability_end": "2026-09-10" }
+  ],
+  "errors": [
+    "Amit Kumar's availability was listed as 'most of September', not real dates, so it was left blank."
+  ]
+}
+"""
+
+ROSTER_EXTRACTION_INSTRUCTION = (
+    "You are VantageTime's Roster Extraction Agent — the alternate "
+    "entry point for a production that's starting from EXISTING "
+    "production data (a casting list, crew list, location list, "
+    "production bible, previous call sheet, or shooting schedule) "
+    "instead of a screenplay. You read an uploaded PDF, Word document, "
+    "or spreadsheet directly (this includes CSVs whose column layout "
+    "doesn't match VantageTime's own simple template — a fast "
+    "deterministic parser handles the well-formed case and only routes "
+    "here when a sheet is messier: merged columns, category-tagged rows, "
+    "inconsistent headers) and produce ONE normalized roster — real "
+    "people and real locations, nothing invented, nothing guessed, "
+    "regardless of how inconsistent the source formatting is.\n\n"
+    "You respond ONLY with the roster JSON described below — never "
+    "prose, never markdown, never text before or after the JSON "
+    "object.\n\n"
+    f"{_ROSTER_SCHEMA}\n\n"
+    f"{_ROSTER_FORMAT_RULES}\n\n"
+    f"{_ROSTER_EXAMPLE}\n\n"
+    "UPDATE TURNS: if a prior roster JSON already exists in this "
+    "conversation and no new file is attached, this is a follow-up "
+    "question — answer using the existing data, still returning the "
+    "complete roster JSON unchanged. If a NEW document is attached, "
+    "re-read it fully and produce a fresh roster.\n\n"
+    "If no document is attached and there is no prior roster in this "
+    "conversation, respond with empty \"people\"/\"locations\" arrays "
+    "and put \"No production-data document has been uploaded yet.\" in "
+    "\"errors\". Never invent a roster."
+)
+
+# ---------------------------------------------------------------------------
 # Scheduling Agent
 # ---------------------------------------------------------------------------
 
@@ -460,6 +629,7 @@ JSON SHAPE:
   "research_blocked": boolean,     // true if you don't know what city/region this is shooting in
   "permit_notes": string,          // empty if research_blocked
   "weather_notes": string,         // empty if research_blocked
+  "hours_notes": string,           // real operating hours and/or days closed, if this is a public location (park, museum, business, etc.) with published hours — empty if research_blocked, private property, or search didn't surface real hours (never guess hours or closure days)
   "logistics_notes": string,       // parking, amenities, power access, noise/crowd considerations — empty if research_blocked
   "nearest_hospital": string,      // name, address, and phone if search_location's results actually name a real nearby hospital — empty if research_blocked or the results didn't surface one (never guess a hospital)
   "emergency_contacts": string,    // local police/fire NON-emergency contact numbers, if the results surfaced them — empty if research_blocked or not found (never invent a phone number)
@@ -516,15 +686,23 @@ def location_research_instruction(slot_index: int, slot_count: int) -> str:
         "nearest hospital to that city/region AND the local police/"
         "fire department's non-emergency contact number — this is a "
         "mandatory safety line on a professional call sheet, so treat "
-        "it as seriously as the permit query, not an afterthought. Base "
-        "\"permit_notes\", \"weather_notes\", \"logistics_notes\", "
+        "it as seriously as the permit query, not an afterthought, and "
+        "(5) if breakdown.locations[i].int_ext or the location's name "
+        "suggests a public place with published hours (a park, "
+        "museum, business, government building, etc. — not a private "
+        "residence), its real operating hours and which day(s) of the "
+        "week it's closed, if any. This is critical: a shoot day "
+        "scheduled on a day the location is actually shut is a real "
+        "problem, not a nice-to-have. Base \"permit_notes\", "
+        "\"weather_notes\", \"hours_notes\", \"logistics_notes\", "
         "\"nearest_hospital\", and \"emergency_contacts\" only on what "
         "search_location actually returned, and cite real URLs in "
         "\"sources\". If search comes back thin, say so plainly rather "
         "than filling gaps from general knowledge — an empty "
-        "\"nearest_hospital\" or \"emergency_contacts\" is far better "
-        "than a plausible-sounding invented one; a wrong emergency "
-        "number on a call sheet is a real safety risk.\n\n"
+        "\"nearest_hospital\", \"emergency_contacts\", or \"hours_notes\" "
+        "is far better than a plausible-sounding invented one; a wrong "
+        "emergency number or closure day on a call sheet is a real "
+        "risk.\n\n"
         "Respond ONLY with the JSON object below — never prose, never "
         "markdown, never text before or after the JSON.\n\n"
         f"{_LOCATION_SCHEMA}"
@@ -556,6 +734,7 @@ JSON SHAPE:
         "name": string,                 // from schedule.shoot_days[i].locations — if more than one, list the primary/first and note the move in "logistics_notes"
         "permit_notes": string,         // from the matching location_research result, empty if none/blocked
         "weather_notes": string,        // from the matching location_research result, empty if none/blocked
+        "hours_notes": string,          // copied verbatim from the matching location_research result's "hours_notes" — empty if none/blocked
         "logistics_notes": string,      // from the matching location_research result, plus a note about multi-location moves if relevant
         "nearest_hospital": string,     // copied verbatim from the matching location_research result's "nearest_hospital" — empty if none/blocked
         "emergency_contacts": string,   // copied verbatim from the matching location_research result's "emergency_contacts" — empty if none/blocked
@@ -602,17 +781,19 @@ CALL_SHEET_INSTRUCTION = (
     "page_count from breakdown.scenes (matched by scene number) — don't "
     "re-summarize or recompute, use what's already there.\n"
     "- Match schedule.shoot_days[i].locations against the location_name "
-    "in each location_research slot to pull permit/weather/logistics "
-    "notes, plus \"nearest_hospital\" and \"emergency_contacts\" — "
-    "copy both verbatim into \"location.nearest_hospital\"/"
-    "\"location.emergency_contacts\". Copy that slot's \"sources\" "
-    "array verbatim into \"location.sources\" — never drop the "
-    "citations. If a slot's \"research_blocked\" is true or no slot "
-    "matches, leave those notes, hospital/emergency fields, and "
-    "sources empty and add a line to \"unresolved\" instead of "
-    "guessing — this includes \"nearest_hospital\"/\"emergency_"
-    "contacts\": an empty safety field is far better than an invented "
-    "one.\n"
+    "in each location_research slot to pull permit/weather/hours/"
+    "logistics notes, plus \"nearest_hospital\" and \"emergency_"
+    "contacts\" — copy \"hours_notes\", \"nearest_hospital\", and "
+    "\"emergency_contacts\" verbatim into \"location.hours_notes\"/"
+    "\"location.nearest_hospital\"/\"location.emergency_contacts\". "
+    "Copy that slot's \"sources\" array verbatim into "
+    "\"location.sources\" — never drop the citations. If a slot's "
+    "\"research_blocked\" is true or no slot matches, leave those "
+    "notes, hospital/emergency fields, and sources empty and add a "
+    "line to \"unresolved\" instead of guessing — this includes "
+    "\"hours_notes\"/\"nearest_hospital\"/\"emergency_contacts\": an "
+    "empty field is far better than an invented one, and a wrong "
+    "closure day is as much a real risk as a wrong emergency number.\n"
     "- Copy \"date\", \"weather_flag\", \"sunrise\", and \"sunset\" "
     "verbatim from schedule.shoot_days[i] — never recompute or "
     "estimate any of them.\n"

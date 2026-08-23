@@ -1,8 +1,22 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { confirmDay, fetchActorView, proposeDates } from "@/lib/api";
+import { confirmDay, fetchActorView, lockDateWindow, proposeDates } from "@/lib/api";
 import { ActorView } from "@/lib/types";
+
+/** "2026-01-16" -> "Jan 16" — short enough to fit in a button, still
+ * unambiguous next to the year shown once in the block's label. */
+function shortDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function blockLabel(block: string[]): string {
+  if (block.length === 0) return "";
+  const year = block[0].slice(0, 4);
+  if (block.length === 1) return `${shortDate(block[0])}, ${year}`;
+  return `${shortDate(block[0])} – ${shortDate(block[block.length - 1])}, ${year}`;
+}
 
 const MIN_DATES = 3;
 
@@ -71,7 +85,7 @@ function ProposeForm({
         <button
           onClick={handleSubmit}
           disabled={!canSubmit || submitting}
-          className="rounded-full bg-[#1a1a16] px-4 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-40"
+          className="rounded-full bg-[#c2570a] px-4 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-40"
         >
           {submitting ? "Sending..." : submitLabel(filled.length)}
         </button>
@@ -95,6 +109,8 @@ export default function AvailabilityPage({ params }: { params: Promise<{ token: 
   const [loading, setLoading] = useState(true);
   const [openForm, setOpenForm] = useState<number | null>(null);
   const [confirming, setConfirming] = useState<number | null>(null);
+  const [locking, setLocking] = useState<number | null>(null);
+  const [lockError, setLockError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchActorView(token).then((v) => {
@@ -124,6 +140,25 @@ export default function AvailabilityPage({ params }: { params: Promise<{ token: 
         : prev
     );
     setOpenForm(null);
+  }
+
+  async function handlePickBlock(blockIndex: number) {
+    if (!view) return;
+    setLocking(blockIndex);
+    setLockError(null);
+    const error = await lockDateWindow(view.session_id, token, blockIndex);
+    if (error) {
+      setLockError(error);
+      setLocking(null);
+      return;
+    }
+    // Refetch rather than patch locally — a successful lock also flips
+    // everyone else's can_pick/waiting_on_higher_priority server-side,
+    // but this view only knows its own; a fresh fetch is the simplest
+    // way to get this person's post-lock state exactly right.
+    const fresh = await fetchActorView(token);
+    setView(fresh);
+    setLocking(null);
   }
 
   async function handleConfirm(dayNumber: number) {
@@ -175,6 +210,47 @@ export default function AvailabilityPage({ params }: { params: Promise<{ token: 
             : "Here are the days you're currently scheduled for. Confirm each one, or let us know as soon as possible if any won't work."}
         </p>
 
+        {view.window?.locked_block && (
+          <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4">
+            <div className="text-xs font-medium uppercase tracking-wide text-green-700">
+              Shoot dates locked
+            </div>
+            <p className="mt-1 text-sm text-green-800">{blockLabel(view.window.locked_block)}</p>
+          </div>
+        )}
+
+        {view.window?.can_pick && (
+          <div className="mt-6 rounded-lg border border-black/10 bg-black/[0.02] p-4">
+            <p className="text-sm font-medium">
+              Pick your {view.window.num_shoot_days}-day shoot window
+            </p>
+            <p className="mt-1 text-xs text-black/60">
+              You&apos;re first in line — whichever block you pick locks in for everyone else too,
+              so choose the one that actually works.
+            </p>
+            <div className="mt-3 space-y-2">
+              {view.window.candidate_blocks.map((block, i) => (
+                <button
+                  key={i}
+                  onClick={() => handlePickBlock(i)}
+                  disabled={locking !== null}
+                  className="w-full rounded-md border border-black/15 bg-white px-4 py-2.5 text-left text-sm font-medium text-black/80 transition hover:border-black/30 hover:bg-black/5 disabled:opacity-50"
+                >
+                  {locking === i ? "Locking..." : blockLabel(block)}
+                </button>
+              ))}
+            </div>
+            {lockError && <p className="mt-2 text-[11px] text-red-600">{lockError}</p>}
+          </div>
+        )}
+
+        {view.window?.waiting_on_higher_priority && (
+          <div className="mt-6 rounded-lg border border-black/10 bg-black/[0.02] p-4 text-xs text-black/60">
+            Shoot dates aren&apos;t locked yet — waiting on someone with higher priority to pick a
+            window first. Check back soon.
+          </div>
+        )}
+
         <div className="mt-6 divide-y divide-black/10">
           {view.days.map((d) => (
             <div key={d.day_number} className="py-3">
@@ -221,7 +297,7 @@ export default function AvailabilityPage({ params }: { params: Promise<{ token: 
                     <button
                       onClick={() => handleConfirm(d.day_number)}
                       disabled={confirming === d.day_number}
-                      className="rounded-full bg-[#1a1a16] px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                      className="rounded-full bg-[#c2570a] px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-50"
                     >
                       {confirming === d.day_number ? "Sending..." : "I can make it"}
                     </button>

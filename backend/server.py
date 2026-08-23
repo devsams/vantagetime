@@ -11,18 +11,39 @@ Run from backend/ with:
 import logging
 import os
 
+from dotenv import load_dotenv
+
+# Must run before anything below reads os.environ — ADK's own agent
+# loader reads backend/.env internally for the orchestrator/
+# roster_extractor agents (which is why those have always worked
+# without this), but that loading is private to ADK's own client
+# construction and never touches the real process environment. Any
+# code outside that path — like chat_routes.py's direct genai.Client()
+# call — sees an empty environment unless we load it here ourselves.
+load_dotenv()
+
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from google.adk.cli.fast_api import get_fast_api_app
 
 from common.availability_routes import router as availability_router
+from common.chat_routes import router as chat_router
+from common.roster_import import router as roster_router
 
 logger = logging.getLogger("vantagetime.server")
 
 AGENTS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Comma-separated list, e.g. "http://localhost:3000,https://vantagetime-frontend-xyz.run.app"
-ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+# Default covers a small range of local dev ports, not just 3000 — `next
+# dev` silently auto-increments to 3001/3002/... whenever the previous
+# port is still occupied (common with several projects' dev servers
+# running at once), and a mismatched origin here fails as an opaque
+# "Failed to fetch" in the browser with no CORS error message to point
+# at the real cause. Set ALLOWED_ORIGINS explicitly for anything beyond
+# local dev (e.g. the deployed frontend's real origin).
+_DEFAULT_ORIGINS = ",".join(f"http://localhost:{p}" for p in range(3000, 3006))
+ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", _DEFAULT_ORIGINS).split(",")
 
 app = get_fast_api_app(
     agents_dir=AGENTS_DIR,
@@ -33,6 +54,15 @@ app = get_fast_api_app(
 # Plain REST routes for the actor availability magic-link flow — not part
 # of the ADK agent pipeline, see common/availability_routes.py.
 app.include_router(availability_router)
+
+# Plain REST route for starting a production from a spreadsheet instead
+# of a script — see common/roster_import.py.
+app.include_router(roster_router)
+
+# Plain REST route for the right-rail chat command center — mounted at
+# /assistant, not /chat (see chat_routes.py for why) — see
+# common/chat_routes.py.
+app.include_router(chat_router)
 
 
 # Without this, an unhandled exception mid-request drops the connection

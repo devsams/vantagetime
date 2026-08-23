@@ -1,18 +1,41 @@
 @import "tailwindcss";
 
+/* MotherDuck-accurate palette. Checked against the live site (not just
+   its meta theme-color): a gold/yellow announcement bar, a vivid orange
+   duck-bill accent, a bright sky-blue used for primary CTAs and big
+   section fills, near-black ink and borders, and pastel coral/mint tags
+   scattered through their architecture diagrams for variety. The first
+   pass at this theme used only one muted orange and was correctly
+   called out as "not colorful" — this version keeps four distinct hues
+   (orange, blue, gold, plus coral/mint for tags) instead of one.
+   Every component reads these through the semantic classes below
+   (bg-panel, text-ink, border-edge, etc.), never a raw Tailwind color,
+   so this file is the single place a theme change like this happens. */
 :root {
-  --bg: #0a0a0a;
-  --bg2: #0e0e0e;
-  --panel: #141414;
-  --panel2: #191919;
-  --edge: #262626;
-  --ink: #f5f5f0;
-  --dim: #8a8a85;
-  --faint: #55554f;
-  --accent: #c9f542;
-  --accent-ink: #0a0a0a;
-  --amber: #ffb547;
-  --blue: #5aa7ff;
+  --bg: #f7f1e2;
+  --bg2: #efe6cf;
+  --panel: #ffffff;
+  --panel2: #f2ebd8;
+  --edge: #ded2ae;
+  --ink: #17130d;
+  --dim: #5c5847;
+  --faint: #948f78;
+  /* MotherDuck's brand orange (their meta theme-color is #ff9538) reads
+     great as a badge/button FILL, but is too light to use as small text
+     on a cream/white background — so --accent is a punchier, more
+     saturated orange-red that still reads unmistakably "MotherDuck,"
+     works as text/borders on light panels, AND (paired with a light
+     --accent-ink) still works as a solid button fill. */
+  --accent: #d9640a;
+  --accent-ink: #fff8ef;
+  /* Their announcement-bar gold. */
+  --amber: #a86a00;
+  /* Their big sky-blue CTA/section color. */
+  --blue: #1c7fb8;
+  /* Pastel tag colors from their architecture diagrams, darkened for
+     text/border use. */
+  --coral: #d9483a;
+  --mint: #0e8f72;
 }
 
 @theme inline {
@@ -28,19 +51,92 @@
   --color-accent-ink: var(--accent-ink);
   --color-amber: var(--amber);
   --color-blue: var(--blue);
+  --color-coral: var(--coral);
+  --color-mint: var(--mint);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
   --font-mono: var(--font-mono);
 }
 
 body {
-  background: var(--bg);
+  /* Two soft color washes standing in for stage-light spill — poster
+     depth without touching layout. Kept subtle (low alpha) so body text
+     stays fully readable on top. */
+  background:
+    radial-gradient(1100px 560px at 12% -12%, rgba(217, 100, 10, 0.14), transparent 60%),
+    radial-gradient(900px 520px at 105% 0%, rgba(28, 127, 184, 0.11), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--ink);
   font-family: var(--font-body), sans-serif;
 }
 
 .tracked {
   letter-spacing: 0.12em;
+}
+
+/* --- Bold-poster treatments ------------------------------------------
+   Visual-only additions layered on top of the existing MotherDuck-style
+   base: gradient headline text, gradient/glow CTA buttons, a film-grain
+   texture, and a film-strip perforation divider. Nothing here changes
+   any component's structure or spacing — every one of these is a class
+   swapped onto an element that already existed. */
+
+/* Gradient-clipped hero titles (project names, big Anton headlines) —
+   movie-poster-title treatment instead of flat ink. */
+.title-gradient {
+  background: linear-gradient(115deg, var(--ink) 0%, var(--accent) 55%, var(--coral) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Primary CTA buttons — gradient fill + a soft "glow" shadow instead of
+   a flat color fill, so the one action per screen that matters most
+   reads as a poster call-to-action rather than a form button. */
+.btn-poster {
+  background: linear-gradient(135deg, var(--accent), var(--coral));
+  color: var(--accent-ink);
+  box-shadow: 0 10px 26px -10px rgba(217, 100, 10, 0.6);
+  transition: filter 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.btn-poster:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 14px 30px -8px rgba(217, 100, 10, 0.7);
+  transform: translateY(-1px);
+}
+.btn-poster:disabled {
+  filter: grayscale(0.4);
+  box-shadow: none;
+}
+
+/* A thin film-strip perforation strip — used as a decorative divider in
+   place of a plain border where a little more theatricality earns its
+   keep (e.g. under the top-level app header). */
+.filmstrip {
+  height: 6px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--ink) 0px,
+    var(--ink) 5px,
+    transparent 5px,
+    transparent 13px
+  );
+  opacity: 0.14;
+}
+
+/* Fixed, whole-viewport film-grain texture. Mounted once in the root
+   layout. pointer-events: none so it never intercepts clicks; low
+   opacity + multiply blend so it reads as texture, not noise. */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 180px 180px;
 }
 
 @keyframes pulse-dot {
@@ -54,3 +150,29 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 .rise { animation: rise 0.35s ease forwards; }
+
+/* Printing the Availability report: hide everything on the page except
+   the report itself (tab bar, sidebar, chat input, action buttons) —
+   marked by id rather than by touching every surrounding component, so
+   this works regardless of what else the app's layout looks like. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #availability-print-area,
+  #availability-print-area * {
+    visibility: visible;
+  }
+  #availability-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  .no-print {
+    display: none !important;
+  }
+  @page {
+    margin: 0.6in;
+  }
+}

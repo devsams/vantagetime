@@ -25,7 +25,7 @@ const STATUS_LABEL: Record<StatusKey, string> = {
 };
 
 const STATUS_STYLE: Record<StatusKey, string> = {
-  unavailable: "border-red-500/50 bg-red-500/10 text-red-300",
+  unavailable: "border-red-500/50 bg-red-500/10 text-red-700",
   pending: "border-edge bg-panel2 text-dim",
   awaiting_dates: "border-amber/50 bg-amber/10 text-amber",
   locked_in: "border-accent/50 bg-accent/15 text-accent",
@@ -43,6 +43,7 @@ interface PersonRow {
   hasLink: boolean;
   status: StatusKey;
   detail: string;
+  availabilityNote: string;
 }
 
 /** Real cross-referencing against cancellations/proposals/confirmations
@@ -96,6 +97,7 @@ export default function StatusSection({
   crew,
   castEmails,
   castPriority,
+  castAvailabilityNote,
   availabilityLinks,
   sessionId,
 }: {
@@ -104,6 +106,7 @@ export default function StatusSection({
   crew: CrewMember[];
   castEmails: Record<string, string>;
   castPriority: Record<string, boolean>;
+  castAvailabilityNote: Record<string, string>;
   availabilityLinks: Record<string, string>;
   sessionId: string;
 }) {
@@ -146,6 +149,7 @@ export default function StatusSection({
       hasLink: !!availabilityLinks[member.name],
       status,
       detail,
+      availabilityNote: castAvailabilityNote[member.name] ?? "",
     });
   }
 
@@ -165,6 +169,7 @@ export default function StatusSection({
       hasLink: !!availabilityLinks[member.name],
       status,
       detail,
+      availabilityNote: member.availabilityNote ?? "",
     });
   }
 
@@ -239,7 +244,14 @@ export default function StatusSection({
                   {r.priority && <span className="text-accent"> ★</span>}
                 </td>
                 <td className="px-4 py-3 text-dim">{r.type}</td>
-                <td className="px-4 py-3 text-dim">{r.roleLabel}</td>
+                <td className="px-4 py-3 text-dim">
+                  {r.roleLabel}
+                  {r.availabilityNote && (
+                    <div className="mt-0.5 text-[9px] text-faint" title={r.availabilityNote}>
+                      {r.availabilityNote}
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-dim">
                   {r.daysOn.length > 0 ? r.daysOn.map((d) => `D${d}`).join(", ") : "—"}
                 </td>
@@ -256,7 +268,7 @@ export default function StatusSection({
                   {r.email ? (
                     <span className="text-dim">{r.email}</span>
                   ) : (
-                    <span className="text-red-300">No email</span>
+                    <span className="text-red-700">No email</span>
                   )}
                   {r.hasLink && <span className="tracked ml-2 text-accent uppercase">Link sent</span>}
                 </td>

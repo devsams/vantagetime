@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import StageHeader from "./StageHeader";
+import NoteBullets from "./NoteBullets";
 import { castNamesForDay } from "@/lib/calendar";
 import {
   fetchCancellations,
@@ -16,6 +17,7 @@ import {
   CrewMember,
   DateProposal,
   LocationAvailability,
+  LocationResearch,
   OtherItem,
   ProposedPeriod,
   Schedule,
@@ -29,6 +31,7 @@ import {
   emptyOtherItem,
   findNextAllowedDate,
   isEmptyAvailability,
+  isLocationReviewed,
   shootDateRange,
 } from "@/lib/locationAvailability";
 
@@ -77,6 +80,33 @@ function buildCrewEmail(
     body: `Hi ${firstName},\n\nHere's the shoot plan for ${projectName}${
       crewMember.role ? ` (${crewMember.role})` : ""
     }:\n\n${dayLines}\n\n${ask}`,
+  };
+}
+
+// "Other" items (rented gear, vehicles, outside vendors) get the same
+// treatment as crew — assumed needed every dated shoot day, same
+// outreach-email shape, just addressed to the item/vendor rather than a
+// named person.
+function buildOtherEmail(
+  item: OtherItem,
+  days: Schedule["shoot_days"],
+  projectName: string,
+  proposedPeriod: ProposedPeriod | null
+): { subject: string; body: string } {
+  const hasUndated = days.some((d) => !d.date);
+  const dayLines = days
+    .map((d) => `Day ${d.day_number}${d.date ? `, ${d.date}` : " (date TBD)"} — ${d.locations.join(", ")}`)
+    .join("\n");
+  const periodLine =
+    hasUndated && proposedPeriod
+      ? `We're aiming for somewhere between ${proposedPeriod.start} and ${proposedPeriod.end}. `
+      : "";
+  const ask = hasUndated
+    ? `We haven't locked in exact dates yet. ${periodLine}Please open the link below and tell us at least 3 dates ${item.name} is available for each undated day.`
+    : `Please confirm ${item.name} is available each day below, or flag any conflicts using the link.`;
+  return {
+    subject: `${projectName} — availability for ${item.name}`,
+    body: `Hi,\n\nWe need ${item.name} for ${projectName} on the following days:\n\n${dayLines}\n\n${ask}`,
   };
 }
 
@@ -181,12 +211,18 @@ export default function PlanningSection({
   otherItems,
   onUpdateCastEmails,
   onUpdateCastPriority,
+  onRenameCastMember,
+  onUpdateCastRole,
+  onAddCastMember,
+  onRemoveCastMember,
   onUpdateCrew,
   onUpdateProposedPeriod,
   onUpdateLocationAvailability,
   onUpdateOtherItems,
   onRequestReschedule,
   onLinksGenerated,
+  unreviewedLocations,
+  locationResearch,
 }: {
   projectName: string;
   sessionId: string;
@@ -201,14 +237,33 @@ export default function PlanningSection({
   otherItems: OtherItem[];
   onUpdateCastEmails: (emails: Record<string, string>) => void;
   onUpdateCastPriority: (priority: Record<string, boolean>) => void;
+  onRenameCastMember: (oldName: string, newName: string) => void;
+  onUpdateCastRole: (name: string, role_size: string) => void;
+  onAddCastMember: (name: string, role_size: string) => void;
+  onRemoveCastMember: (name: string) => void;
   onUpdateCrew: (crew: CrewMember[]) => void;
   onUpdateProposedPeriod: (period: ProposedPeriod | null) => void;
   onUpdateLocationAvailability: (a: Record<string, LocationAvailability>) => void;
   onUpdateOtherItems: (items: OtherItem[]) => void;
   onRequestReschedule: (text: string) => void;
   onLinksGenerated: (links: Record<string, string>) => void;
+  // Locations actually in use that the production team hasn't signed
+  // off on yet — sending crew/other outreach is gated on this being
+  // empty (cast outreach lives on the Dates tab and is gated there).
+  unreviewedLocations: string[];
+  // Agent-researched weather/hours/permit notes, keyed by parallel
+  // research slot — matched to a location card by name so the manual
+  // availability editor and the real research sit in one place.
+  locationResearch: Record<number, LocationResearch>;
 }) {
   const [subTab, setSubTab] = useState<SubTab>("location");
+  // A cast member's name IS its identity (no stable id, unlike crew/
+  // Other) — editing it in place needs a local draft committed on
+  // blur/Enter rather than firing a rename on every keystroke, so an
+  // in-progress edit never collides with another cast member's name.
+  const [castNameDraft, setCastNameDraft] = useState<Record<string, string>>({});
+  const [newCastName, setNewCastName] = useState("");
+  const [newCastRole, setNewCastRole] = useState("");
   const [newCrewName, setNewCrewName] = useState("");
   const [newCrewRole, setNewCrewRole] = useState("");
   const [newCrewEmail, setNewCrewEmail] = useState("");
@@ -222,6 +277,13 @@ export default function PlanningSection({
   const [checking, setChecking] = useState(false);
   const [sendingCrewLinks, setSendingCrewLinks] = useState(false);
   const [copiedCrewId, setCopiedCrewId] = useState<string | null>(null);
+  const [sendingOtherLinks, setSendingOtherLinks] = useState(false);
+  const [copiedOtherId, setCopiedOtherId] = useState<string | null>(null);
+  // Keyed by name — shared between crew and "Other" since both register
+  // through the same endpoint and neither name-collides in practice.
+  const [outreachEmailStatus, setOutreachEmailStatus] = useState<
+    Record<string, { sent: boolean; status: string }>
+  >({});
 
   const datedDays = schedule.shoot_days.filter((d) => d.date);
   const castNames = new Set(breakdown.cast.map((c) => c.name));
@@ -261,8 +323,37 @@ export default function PlanningSection({
     onUpdateCastPriority({ ...castPriority, [name]: !castPriority[name] });
   }
 
+  function castNameValue(name: string): string {
+    return castNameDraft[name] ?? name;
+  }
+
+  function commitCastRename(name: string) {
+    const draft = castNameDraft[name];
+    if (draft === undefined) return;
+    setCastNameDraft((prev) => {
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== name) onRenameCastMember(name, trimmed);
+  }
+
+  function addCastMember() {
+    if (!newCastName.trim()) return;
+    onAddCastMember(newCastName, newCastRole);
+    setNewCastName("");
+    setNewCastRole("");
+  }
+
   function toggleCrewPriority(id: string) {
     onUpdateCrew(crew.map((c) => (c.id === id ? { ...c, priority: !c.priority } : c)));
+  }
+
+  // Crew has a stable id, so — unlike cast — a name/role edit is a
+  // plain per-keystroke patch, no rename migration needed.
+  function patchCrewMember(id: string, patch: Partial<CrewMember>) {
+    onUpdateCrew(crew.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   }
 
   function addCrewMember() {
@@ -290,26 +381,68 @@ export default function PlanningSection({
     if (crew.length === 0) return;
     setSendingCrewLinks(true);
     try {
-      const links = await registerAvailabilityLinks(
+      const result = await registerAvailabilityLinks(
         sessionId,
         projectName,
-        crew.map((c) => ({
-          name: c.name,
-          scheduled_days: schedule.shoot_days.map((d) => ({
-            day_number: d.day_number,
-            locations: d.locations,
-            date: d.date,
-            hours_needed: DEFAULT_CREW_HOURS,
-          })),
-        })),
+        crew.map((c) => {
+          const { subject, body } = buildCrewEmail(c, schedule.shoot_days, projectName, proposedPeriod);
+          return {
+            name: c.name,
+            scheduled_days: schedule.shoot_days.map((d) => ({
+              day_number: d.day_number,
+              locations: d.locations,
+              date: d.date,
+              hours_needed: DEFAULT_CREW_HOURS,
+            })),
+            email: c.email,
+            email_subject: subject,
+            email_body: body,
+            priority: c.priority,
+          };
+        }),
         proposedPeriod
       );
-      onLinksGenerated(links);
+      onLinksGenerated(result.links);
+      setOutreachEmailStatus((prev) => ({ ...prev, ...result.emailStatus }));
     } catch {
       // Registration failing just means links stay ungenerated — the
       // draft content is still fully visible either way.
     }
     setSendingCrewLinks(false);
+  }
+
+  async function sendOtherLinks() {
+    if (otherItems.length === 0) return;
+    setSendingOtherLinks(true);
+    try {
+      const result = await registerAvailabilityLinks(
+        sessionId,
+        projectName,
+        otherItems.map((item) => {
+          const { subject, body } = buildOtherEmail(item, schedule.shoot_days, projectName, proposedPeriod);
+          return {
+            name: item.name,
+            scheduled_days: schedule.shoot_days.map((d) => ({
+              day_number: d.day_number,
+              locations: d.locations,
+              date: d.date,
+              hours_needed: DEFAULT_CREW_HOURS,
+            })),
+            email: item.email,
+            email_subject: subject,
+            email_body: body,
+            priority: item.priority,
+          };
+        }),
+        proposedPeriod
+      );
+      onLinksGenerated(result.links);
+      setOutreachEmailStatus((prev) => ({ ...prev, ...result.emailStatus }));
+    } catch {
+      // Registration failing just means links stay ungenerated — the
+      // draft content is still fully visible either way.
+    }
+    setSendingOtherLinks(false);
   }
 
   function copyCrewEmail(member: CrewMember) {
@@ -323,6 +456,17 @@ export default function PlanningSection({
     setTimeout(() => setCopiedCrewId(null), 1500);
   }
 
+  function copyOtherEmail(item: OtherItem) {
+    const { subject, body } = buildOtherEmail(item, schedule.shoot_days, projectName, proposedPeriod);
+    const token = availabilityLinks[item.name];
+    const fullBody = token
+      ? `${body}\n\nLet us know here: ${window.location.origin}/availability/${token}`
+      : body;
+    navigator.clipboard.writeText(`Subject: ${subject}\n\n${fullBody}`);
+    setCopiedOtherId(item.id);
+    setTimeout(() => setCopiedOtherId(null), 1500);
+  }
+
   // --- Location availability editing (Location sub-tab) ---
 
   function patchLocationAvailability(name: string, patch: Partial<LocationAvailability>) {
@@ -330,11 +474,18 @@ export default function PlanningSection({
     const next = { ...current, ...patch };
     const nextMap = { ...locationAvailability };
     // isEmptyAvailability only checks the shared constraint fields, not
-    // the LocationAvailability-only fields (address, contact info) — so a
-    // location with just those typed in and no constraints set must
-    // still be kept.
+    // the LocationAvailability-only fields (address, contact info,
+    // reviewed) — so a location with just those set and no constraints
+    // must still be kept. Reviewed especially: marking "no restrictions,
+    // confirmed available" on an otherwise-blank location is a real,
+    // meaningful signal, not an empty entry to discard.
     const hasLocationOnlyFields =
-      next.address.trim() || next.contactName.trim() || next.contactPhone.trim() || next.contactEmail.trim();
+      next.address.trim() ||
+      next.mapsUrl.trim() ||
+      next.contactName.trim() ||
+      next.contactPhone.trim() ||
+      next.contactEmail.trim() ||
+      next.reviewed;
     if (isEmptyAvailability(next) && !hasLocationOnlyFields) {
       delete nextMap[name];
     } else {
@@ -354,6 +505,20 @@ export default function PlanningSection({
   function toggleLocationPriority(name: string) {
     const current = locationAvailability[name] ?? emptyAvailability(name);
     patchLocationAvailability(name, { priority: !current.priority });
+  }
+
+  function toggleLocationReviewed(name: string) {
+    const current = locationAvailability[name] ?? emptyAvailability(name);
+    patchLocationAvailability(name, { reviewed: !current.reviewed });
+  }
+
+  /** The agent-researched entry for this exact location name, if the
+   * Location Research agent actually ran and found one — never
+   * re-derived, just looked up from what it already returned. */
+  function researchFor(name: string): LocationResearch | undefined {
+    return Object.values(locationResearch).find(
+      (r) => r.assigned && !r.research_blocked && r.location_name === name
+    );
   }
 
   function useShootDatesForWindow(name: string) {
@@ -584,7 +749,7 @@ export default function PlanningSection({
           {proposedPeriod && (
             <button
               onClick={() => onUpdateProposedPeriod(null)}
-              className="tracked text-[10px] text-faint uppercase transition hover:text-red-300"
+              className="tracked text-[10px] text-faint uppercase transition hover:text-red-700"
             >
               Clear
             </button>
@@ -737,7 +902,7 @@ export default function PlanningSection({
                               key={d}
                               onClick={() => removeOtherPreferredDate(item.id, d)}
                               title="Remove"
-                              className="tracked rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[9px] uppercase text-accent transition hover:bg-red-500/10 hover:text-red-300"
+                              className="tracked rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[9px] uppercase text-accent transition hover:bg-red-500/10 hover:text-red-700"
                             >
                               {d} ×
                             </button>
@@ -772,7 +937,7 @@ export default function PlanningSection({
 
                     <button
                       onClick={() => removeOtherItem(item.id)}
-                      className="tracked mt-2 text-[9px] text-faint uppercase transition hover:text-red-300"
+                      className="tracked mt-2 text-[9px] text-faint uppercase transition hover:text-red-700"
                     >
                       Remove
                     </button>
@@ -810,6 +975,70 @@ export default function PlanningSection({
             </div>
           </div>
 
+          {otherItems.length > 0 && (
+            <div className="mb-6 rounded-xl border border-edge bg-panel p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="tracked text-[10px] text-faint uppercase">Other Availability</div>
+                <button
+                  onClick={sendOtherLinks}
+                  disabled={sendingOtherLinks || unreviewedLocations.length > 0}
+                  title={unreviewedLocations.length > 0 ? "Review all locations first" : undefined}
+                  className="tracked rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs text-accent transition hover:bg-accent/20 disabled:opacity-50"
+                >
+                  {sendingOtherLinks ? "Generating..." : "↻ Generate links"}
+                </button>
+              </div>
+              <p className="mb-3 text-xs text-faint">
+                Sends the real email (via Mailpit or whatever SMTP catcher MAILPIT_HOST points at)
+                to anyone with a contact address on file, and generates a magic link either way —
+                same flow as cast and crew, and the same priority ladder for locking shoot dates.
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {otherItems.map((item) => {
+                  const token = availabilityLinks[item.name];
+                  const status = outreachEmailStatus[item.name];
+                  return (
+                    <div key={item.id} className="rounded-lg border border-edge/60 bg-panel2 p-3">
+                      <div className="text-xs font-medium text-ink">
+                        {item.name}
+                        {item.priority && <span className="text-accent"> · priority</span>}
+                      </div>
+                      {status && (
+                        <p className={`mt-1 text-[10px] ${status.sent ? "text-accent" : "text-faint"}`}>
+                          {status.sent
+                            ? `✓ Sent to ${item.email || "their address"} — check Mailpit`
+                            : `Not sent — ${status.status}`}
+                        </p>
+                      )}
+                      <div className="mt-2 flex items-center gap-3">
+                        <button
+                          onClick={() => copyOtherEmail(item)}
+                          className="tracked text-[10px] text-faint uppercase transition hover:text-accent"
+                        >
+                          {copiedOtherId === item.id ? "Copied!" : "Copy email"}
+                        </button>
+                        {token ? (
+                          <a
+                            href={`/availability/${token}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="tracked text-[10px] text-accent uppercase transition hover:brightness-125"
+                          >
+                            Open link →
+                          </a>
+                        ) : (
+                          <span className="tracked text-[10px] text-faint uppercase">
+                            Generate links first
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="mb-6 rounded-xl border border-edge bg-panel p-4">
             <div className="mb-3 flex items-center justify-between">
               <div className="tracked text-[10px] text-faint uppercase">
@@ -833,7 +1062,7 @@ export default function PlanningSection({
                     className={`flex items-center justify-between gap-4 rounded-md border-l-2 px-4 py-3 text-sm ${
                       c.priority
                         ? "border-amber/60 bg-amber/10 text-amber"
-                        : "border-red-500/60 bg-red-500/10 text-red-200"
+                        : "border-red-500/60 bg-red-500/10 text-red-700"
                     }`}
                   >
                     <span>
@@ -843,7 +1072,7 @@ export default function PlanningSection({
                     {c.rescheduleText && (
                       <button
                         onClick={() => onRequestReschedule(c.rescheduleText!)}
-                        className="shrink-0 rounded-full bg-red-500/20 px-3 py-1 text-xs font-medium text-red-100 transition hover:bg-red-500/30"
+                        className="shrink-0 rounded-full bg-red-500/20 px-3 py-1 text-xs font-medium text-red-800 transition hover:bg-red-500/30"
                       >
                         Draft reschedule request
                       </button>
@@ -917,31 +1146,87 @@ export default function PlanningSection({
               {breakdown.locations.map((loc) => {
                 const avail = locationAvailability[loc.name] ?? emptyAvailability(loc.name);
                 const constrained = !isEmptyAvailability(avail);
+                const reviewed = isLocationReviewed(avail);
+                const research = researchFor(loc.name);
                 return (
                   <div
                     key={loc.name}
                     className={`rounded-lg border p-3 ${
-                      constrained ? "border-accent/50 bg-accent/5" : "border-edge/60 bg-panel2"
+                      !reviewed
+                        ? "border-amber/50 bg-amber/5"
+                        : constrained
+                          ? "border-mint/50 bg-mint/5"
+                          : "border-edge/60 bg-panel2"
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-ink">{loc.name}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="tracked text-[9px] text-faint uppercase">
-                          {loc.int_ext} · {loc.scene_count} scene(s)
-                        </span>
-                        <button
-                          onClick={() => toggleLocationPriority(loc.name)}
-                          className={`tracked rounded-full border px-2 py-0.5 text-[9px] uppercase transition ${
-                            avail.priority
-                              ? "border-accent/50 bg-accent/20 text-accent"
-                              : "border-edge text-faint hover:text-dim"
-                          }`}
-                        >
-                          Priority: {avail.priority ? "Yes" : "No"}
-                        </button>
-                      </div>
+                      <span className="tracked text-[9px] text-faint uppercase">
+                        {loc.int_ext} · {loc.scene_count} scene(s)
+                      </span>
                     </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        onClick={() => toggleLocationReviewed(loc.name)}
+                        disabled={reviewed && !avail.reviewed}
+                        title={
+                          reviewed && !avail.reviewed
+                            ? "Already counts as reviewed — a real constraint is set below"
+                            : undefined
+                        }
+                        className={`tracked rounded-full border px-2 py-0.5 text-[9px] uppercase transition ${
+                          reviewed
+                            ? "border-mint/50 bg-mint/20 text-mint"
+                            : "border-amber/50 bg-amber/10 text-amber"
+                        } ${reviewed && !avail.reviewed ? "cursor-default opacity-80" : ""}`}
+                      >
+                        {reviewed ? "✓ Reviewed" : "Needs review"}
+                      </button>
+                      <button
+                        onClick={() => toggleLocationPriority(loc.name)}
+                        className={`tracked rounded-full border px-2 py-0.5 text-[9px] uppercase transition ${
+                          avail.priority
+                            ? "border-accent/50 bg-accent/20 text-accent"
+                            : "border-edge text-faint hover:text-dim"
+                        }`}
+                      >
+                        Priority: {avail.priority ? "Yes" : "No"}
+                      </button>
+                    </div>
+                    {!reviewed && (
+                      <p className="mt-1 text-[10px] text-amber">
+                        Check real hours/closures for a public location, then set days/window/
+                        notes below (that alone marks it reviewed) — or click the button above to
+                        confirm it has no real restrictions. Either unlocks cast/crew/other
+                        outreach.
+                      </p>
+                    )}
+
+                    {research && (research.weather_notes || research.hours_notes || research.permit_notes) && (
+                      <div className="mt-2 space-y-1 rounded-md border border-edge/60 bg-panel p-2">
+                        <div className="tracked text-[9px] text-faint uppercase">
+                          Research (via Parallel)
+                        </div>
+                        {research.hours_notes && (
+                          <div className="text-[10px] text-ink">
+                            <span className="text-faint">Hours: </span>
+                            <NoteBullets text={research.hours_notes} max={2} className="mt-0.5" />
+                          </div>
+                        )}
+                        {research.weather_notes && (
+                          <div className="text-[10px] text-dim">
+                            <span className="text-faint">Weather: </span>
+                            <NoteBullets text={research.weather_notes} max={3} className="mt-0.5" />
+                          </div>
+                        )}
+                        {research.permit_notes && (
+                          <div className="text-[10px] text-dim">
+                            <span className="text-faint">Permits: </span>
+                            <NoteBullets text={research.permit_notes} max={3} className="mt-0.5" />
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <label className="mt-2 flex flex-col gap-1">
                       <span className="text-[10px] text-faint">
@@ -956,6 +1241,31 @@ export default function PlanningSection({
                         placeholder="e.g. 214 Barton Springs Rd, Austin, TX"
                         className="rounded-md border border-edge bg-panel px-2 py-1 text-[11px] text-ink focus:border-accent focus:outline-none"
                       />
+                    </label>
+
+                    <label className="mt-2 flex flex-col gap-1">
+                      <span className="text-[10px] text-faint">Google Maps link</span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="url"
+                          value={avail.mapsUrl}
+                          onChange={(e) =>
+                            patchLocationAvailability(loc.name, { mapsUrl: e.target.value })
+                          }
+                          placeholder="https://maps.google.com/?q=..."
+                          className="flex-1 rounded-md border border-edge bg-panel px-2 py-1 text-[11px] text-ink focus:border-accent focus:outline-none"
+                        />
+                        {avail.mapsUrl && (
+                          <a
+                            href={avail.mapsUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="tracked shrink-0 text-[9px] uppercase text-accent transition hover:brightness-125"
+                          >
+                            Open →
+                          </a>
+                        )}
+                      </div>
                     </label>
 
                     <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -1090,7 +1400,7 @@ export default function PlanningSection({
                               key={d}
                               onClick={() => removePreferredDate(loc.name, d)}
                               title="Remove"
-                              className="tracked rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[9px] uppercase text-accent transition hover:bg-red-500/10 hover:text-red-300"
+                              className="tracked rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[9px] uppercase text-accent transition hover:bg-red-500/10 hover:text-red-700"
                             >
                               {d} ×
                             </button>
@@ -1130,7 +1440,7 @@ export default function PlanningSection({
                           delete nextMap[loc.name];
                           onUpdateLocationAvailability(nextMap);
                         }}
-                        className="tracked mt-2 text-[9px] text-faint uppercase transition hover:text-red-300"
+                        className="tracked mt-2 text-[9px] text-faint uppercase transition hover:text-red-700"
                       >
                         Clear constraint
                       </button>
@@ -1166,21 +1476,41 @@ export default function PlanningSection({
                     isPriority ? "border-accent/50 bg-accent/5" : "border-edge/60 bg-panel2"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-ink">{member.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="tracked text-[9px] text-faint uppercase">{member.role_size}</span>
-                      <button
-                        onClick={() => toggleCastPriority(member.name)}
-                        className={`tracked rounded-full border px-2 py-0.5 text-[9px] uppercase transition ${
-                          isPriority
-                            ? "border-accent/50 bg-accent/20 text-accent"
-                            : "border-edge text-faint hover:text-dim"
-                        }`}
-                      >
-                        Priority: {isPriority ? "Yes" : "No"}
-                      </button>
-                    </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <input
+                      value={castNameValue(member.name)}
+                      onChange={(e) =>
+                        setCastNameDraft((prev) => ({ ...prev, [member.name]: e.target.value }))
+                      }
+                      onBlur={() => commitCastRename(member.name)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
+                      placeholder="Actor name"
+                      className="flex-1 rounded-md border border-edge bg-panel px-2 py-1 text-xs font-medium text-ink focus:border-accent focus:outline-none"
+                    />
+                    <button
+                      onClick={() => toggleCastPriority(member.name)}
+                      className={`tracked shrink-0 rounded-full border px-2 py-0.5 text-[9px] uppercase transition ${
+                        isPriority
+                          ? "border-accent/50 bg-accent/20 text-accent"
+                          : "border-edge text-faint hover:text-dim"
+                      }`}
+                    >
+                      Priority: {isPriority ? "Yes" : "No"}
+                    </button>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      value={member.role_size}
+                      onChange={(e) => onUpdateCastRole(member.name, e.target.value)}
+                      placeholder="Character / role"
+                      className="flex-1 rounded-md border border-edge bg-panel px-2 py-1 text-[11px] text-ink focus:border-accent focus:outline-none"
+                    />
+                    <button
+                      onClick={() => onRemoveCastMember(member.name)}
+                      className="tracked shrink-0 text-[9px] text-faint uppercase transition hover:text-red-700"
+                    >
+                      Remove
+                    </button>
                   </div>
                   <input
                     type="email"
@@ -1194,7 +1524,7 @@ export default function PlanningSection({
                       {daysOn.length} day(s) ·{" "}
                       {confirmedCount > 0 && <span className="text-accent">{confirmedCount} confirmed</span>}
                       {confirmedCount > 0 && cancelledCount > 0 && " · "}
-                      {cancelledCount > 0 && <span className="text-red-300">{cancelledCount} cancelled</span>}
+                      {cancelledCount > 0 && <span className="text-red-700">{cancelledCount} cancelled</span>}
                       {confirmedCount === 0 && cancelledCount === 0 && "no response yet"}
                     </span>
                     {token ? (
@@ -1214,9 +1544,39 @@ export default function PlanningSection({
               );
             })}
           </div>
+
+          <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-edge/60 pt-4">
+            <label className="flex flex-col gap-1">
+              <span className="text-[10px] text-faint">Name</span>
+              <input
+                value={newCastName}
+                onChange={(e) => setNewCastName(e.target.value)}
+                className="rounded-md border border-edge bg-panel2 px-3 py-1.5 text-xs text-ink focus:border-accent focus:outline-none"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[10px] text-faint">Character / role</span>
+              <input
+                value={newCastRole}
+                onChange={(e) => setNewCastRole(e.target.value)}
+                className="rounded-md border border-edge bg-panel2 px-3 py-1.5 text-xs text-ink focus:border-accent focus:outline-none"
+              />
+            </label>
+            <button
+              onClick={addCastMember}
+              disabled={!newCastName.trim()}
+              className="rounded-full bg-accent px-4 py-2 text-xs font-semibold text-accent-ink transition hover:brightness-95 disabled:opacity-40"
+            >
+              Add cast member
+            </button>
+          </div>
+
           <p className="mt-3 text-[11px] text-faint">
-            Cast outreach emails (with links) are generated on the Availability tab — the links
-            show up here automatically once sent.
+            Edit a name to fix a misparsed import, or replace someone mid-production — email and
+            priority carry over, but any link already sent does not (its responses are tied to
+            the old name, so a rename starts fresh — generate a new link on the Availability tab).
+            Cast outreach emails (with links) are generated on the
+            Availability tab — the links show up here automatically once sent.
           </p>
         </div>
       )}
@@ -1230,16 +1590,30 @@ export default function PlanningSection({
                 {crew.map((c) => (
                   <div
                     key={c.id}
-                    className={`flex items-center justify-between gap-3 rounded-md border px-3 py-2 ${
+                    className={`flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 ${
                       c.priority ? "border-accent/50 bg-accent/5" : "border-edge/60 bg-panel2"
                     }`}
                   >
-                    <div className="text-xs text-ink">
-                      <span className="font-medium">{c.name}</span>
-                      {c.role && <span className="text-dim"> · {c.role}</span>}
-                      <span className="text-faint"> · {c.email}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
+                    <input
+                      value={c.name}
+                      onChange={(e) => patchCrewMember(c.id, { name: e.target.value })}
+                      placeholder="Name"
+                      className="w-32 flex-1 rounded-md border border-edge bg-panel px-2 py-1 text-xs font-medium text-ink focus:border-accent focus:outline-none"
+                    />
+                    <input
+                      value={c.role}
+                      onChange={(e) => patchCrewMember(c.id, { role: e.target.value })}
+                      placeholder="Role"
+                      className="w-28 flex-1 rounded-md border border-edge bg-panel px-2 py-1 text-xs text-dim focus:border-accent focus:outline-none"
+                    />
+                    <input
+                      type="email"
+                      value={c.email}
+                      onChange={(e) => patchCrewMember(c.id, { email: e.target.value })}
+                      placeholder="email@example.com"
+                      className="w-40 flex-1 rounded-md border border-edge bg-panel px-2 py-1 text-xs text-faint focus:border-accent focus:outline-none"
+                    />
+                    <div className="flex shrink-0 items-center gap-2">
                       <button
                         onClick={() => toggleCrewPriority(c.id)}
                         className={`tracked rounded-full border px-2 py-0.5 text-[9px] uppercase transition ${
@@ -1252,7 +1626,7 @@ export default function PlanningSection({
                       </button>
                       <button
                         onClick={() => removeCrewMember(c.id)}
-                        className="tracked text-[10px] text-faint uppercase transition hover:text-red-300"
+                        className="tracked text-[10px] text-faint uppercase transition hover:text-red-700"
                       >
                         Remove
                       </button>
@@ -1305,19 +1679,22 @@ export default function PlanningSection({
                 <div className="tracked text-[10px] text-faint uppercase">Crew Availability</div>
                 <button
                   onClick={sendCrewLinks}
-                  disabled={sendingCrewLinks}
+                  disabled={sendingCrewLinks || unreviewedLocations.length > 0}
+                  title={unreviewedLocations.length > 0 ? "Review all locations first" : undefined}
                   className="tracked rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs text-accent transition hover:bg-accent/20 disabled:opacity-50"
                 >
                   {sendingCrewLinks ? "Generating..." : "↻ Generate links"}
                 </button>
               </div>
               <p className="mb-3 text-xs text-faint">
-                Crew is assumed needed every shoot day. Generate a link per person, then copy the
-                draft below — it asks for 3+ available dates on any day that isn&apos;t dated yet.
+                Crew is assumed needed every shoot day. Generating links sends the real outreach
+                email to each person via Mailpit (or whatever SMTP catcher MAILPIT_HOST points
+                at) — same as cast — and creates their magic link either way.
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {crew.map((c) => {
                   const token = availabilityLinks[c.name];
+                  const status = outreachEmailStatus[c.name];
                   return (
                     <div key={c.id} className="rounded-lg border border-edge/60 bg-panel2 p-3">
                       <div className="text-xs font-medium text-ink">
@@ -1325,6 +1702,13 @@ export default function PlanningSection({
                         {c.role && <span className="text-dim"> · {c.role}</span>}
                         {c.priority && <span className="text-accent"> · priority</span>}
                       </div>
+                      {status && (
+                        <p className={`mt-1 text-[10px] ${status.sent ? "text-accent" : "text-faint"}`}>
+                          {status.sent
+                            ? `✓ Sent to ${c.email || "their address"} — check Mailpit`
+                            : `Not sent — ${status.status}`}
+                        </p>
+                      )}
                       <div className="mt-2 flex items-center gap-3">
                         <button
                           onClick={() => copyCrewEmail(c)}

@@ -15,3 +15,7 @@ out/
 
 # OS
 .DS_Store
+
+# ADK local session state — a mutating runtime SQLite db per agent app,
+# not source; was accidentally committed early on.
+.adk/

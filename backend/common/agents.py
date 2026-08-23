@@ -12,6 +12,7 @@ from .instructions import (
     AVAILABILITY_INSTRUCTION,
     CALL_SHEET_INSTRUCTION,
     LOCATION_RESEARCH_DESCRIPTION,
+    ROSTER_EXTRACTION_INSTRUCTION,
     SCHEDULING_INSTRUCTION,
     SCRIPT_BREAKDOWN_INSTRUCTION,
     location_research_instruction,
@@ -94,6 +95,28 @@ def build_script_breakdown_agent() -> Agent:
         description=SCRIPT_BREAKDOWN_DESCRIPTION,
         instruction=SCRIPT_BREAKDOWN_INSTRUCTION,
         output_key="breakdown",
+        generate_content_config=RESILIENT_CONFIG,
+    )
+
+
+ROSTER_EXTRACTION_DESCRIPTION = (
+    "Reads an uploaded production-data document (casting list, crew "
+    "list, location list, production bible, previous call sheet, or "
+    "shooting schedule — PDF, Word, or a messier/mixed-layout CSV that "
+    "the deterministic importer couldn't parse — never a screenplay) "
+    "and produces the same normalized people/locations roster shape the "
+    "deterministic CSV importer produces, so a production can start "
+    "from whatever document it already has instead of a script."
+)
+
+
+def build_roster_extraction_agent() -> Agent:
+    return Agent(
+        model=MODEL,
+        name="roster_extraction_agent",
+        description=ROSTER_EXTRACTION_DESCRIPTION,
+        instruction=ROSTER_EXTRACTION_INSTRUCTION,
+        output_key="roster",
         generate_content_config=RESILIENT_CONFIG,
     )
 

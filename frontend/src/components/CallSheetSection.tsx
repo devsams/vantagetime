@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import StageHeader from "./StageHeader";
+import NoteBullets from "./NoteBullets";
 import {
   emptyCallSheetDayExtras,
   formatPageCount,
@@ -222,7 +223,7 @@ export default function CallSheetSection({
       )}
 
       {day && (
-        <div className="rounded-2xl bg-[#f4f2ea] p-8 text-[#1a1a16]">
+        <div className="rounded-2xl bg-panel p-8 text-ink shadow-sm">
           <div className="flex items-start justify-between border-b border-black/15 pb-4">
             <div>
               <h3 className="text-2xl font-bold uppercase leading-none">
@@ -238,17 +239,29 @@ export default function CallSheetSection({
                 Location: <span className="font-semibold">{day.location.name}</span>
               </div>
               {address && <div className="mt-0.5 text-black/50">{address}</div>}
+              {locationInfo?.mapsUrl && (
+                <div className="mt-0.5">
+                  <a
+                    href={locationInfo.mapsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-accent underline underline-offset-2"
+                  >
+                    Open in Google Maps →
+                  </a>
+                </div>
+              )}
               {locationContact && <div className="mt-0.5 text-black/50">Contact: {locationContact}</div>}
             </div>
           </div>
 
           {day.safety_notes && (
-            <div className="mt-4 rounded-md bg-[#c9f542]/40 px-4 py-3 text-xs text-black/80">
+            <div className="mt-4 rounded-md bg-amber/15 px-4 py-3 text-xs text-ink">
               ⚠ {day.safety_notes}
             </div>
           )}
           {!day.safety_notes && day.call_time_note && (
-            <div className="mt-4 rounded-md bg-[#c9f542]/40 px-4 py-3 text-xs text-black/80">
+            <div className="mt-4 rounded-md bg-amber/15 px-4 py-3 text-xs text-ink">
               {day.call_time_note}
             </div>
           )}
@@ -258,6 +271,30 @@ export default function CallSheetSection({
               {day.weather_flag && <span>{day.weather_flag}</span>}
               {day.sunrise && <span>Sunrise {day.sunrise}</span>}
               {day.sunset && <span>Sunset {day.sunset}</span>}
+            </div>
+          )}
+
+          {day.location.hours_notes && (
+            <div className="mt-4 rounded-md border border-amber-900/20 bg-amber-900/5 px-4 py-3 text-xs text-black/80">
+              <span className="font-semibold">Hours: </span>
+              <NoteBullets text={day.location.hours_notes} max={2} className="mt-0.5" />
+            </div>
+          )}
+
+          {(day.location.weather_notes || day.location.permit_notes) && (
+            <div className="mt-2 space-y-1 text-xs text-black/60">
+              {day.location.weather_notes && (
+                <div>
+                  <span className="font-semibold text-black/70">Weather notes: </span>
+                  <NoteBullets text={day.location.weather_notes} max={3} className="mt-0.5" />
+                </div>
+              )}
+              {day.location.permit_notes && (
+                <div>
+                  <span className="font-semibold text-black/70">Permits: </span>
+                  <NoteBullets text={day.location.permit_notes} max={3} className="mt-0.5" />
+                </div>
+              )}
             </div>
           )}
 

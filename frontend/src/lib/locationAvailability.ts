@@ -1,4 +1,12 @@
-import { AvailabilityConstraint, LocationAvailability, OtherItem, ProposedPeriod, ShootDay } from "./types";
+import {
+  AvailabilityConstraint,
+  Breakdown,
+  LocationAvailability,
+  OtherItem,
+  ProposedPeriod,
+  Schedule,
+  ShootDay,
+} from "./types";
 
 // JS Date.getUTCDay() convention: 0=Sun, 1=Mon, ... 6=Sat. Displayed
 // Mon-first since that's how a shoot calendar reads, but stored in this
@@ -23,9 +31,11 @@ export function emptyAvailability(location: string): LocationAvailability {
   return {
     location,
     address: "",
+    mapsUrl: "",
     contactName: "",
     contactPhone: "",
     contactEmail: "",
+    reviewed: false,
     ...emptyConstraint(),
   };
 }
@@ -45,6 +55,33 @@ export function isEmptyAvailability(a: AvailabilityConstraint): boolean {
     !a.notes.trim() &&
     !a.priority
   );
+}
+
+/** Whether the team has actually entered a real availability constraint
+ * — days, a window, preferred dates, a time, or a note. Deliberately
+ * excludes "priority" (that's a separate ranking flag, not evidence
+ * anyone checked this location's real hours). */
+function hasRealConstraint(a: AvailabilityConstraint): boolean {
+  return (
+    a.daysOfWeek.length > 0 ||
+    !!a.windowStart ||
+    !!a.windowEnd ||
+    a.preferredDates.length > 0 ||
+    !!a.timeStart ||
+    !!a.timeEnd ||
+    !!a.notes.trim()
+  );
+}
+
+/** A location counts as reviewed either because the team explicitly
+ * flagged it that way (confirming "no real restrictions") or because
+ * they've actually entered a real constraint — typing in days/window/
+ * preferred dates/time/notes IS the review, no separate click required.
+ * Computed rather than trusting the stored `reviewed` flag alone, so a
+ * location that already has real data doesn't sit stuck on "needs
+ * review" just because the flag was never explicitly toggled. */
+export function isLocationReviewed(a: LocationAvailability): boolean {
+  return a.reviewed || hasRealConstraint(a);
 }
 
 /** The shoot range already known to the project — real assigned shoot
@@ -127,6 +164,55 @@ export function checkPreferred(dateStr: string, label: string, a: AvailabilityCo
   if (!dateStr || a.preferredDates.length === 0) return null;
   if (a.preferredDates.includes(dateStr)) return null;
   return `${label} prefers ${a.preferredDates.slice().sort().join(", ")} — this day is dated ${dateStr}.`;
+}
+
+/** Every location the schedule actually needs — real per-day locations
+ * once shoot days exist, falling back to the breakdown's location list
+ * before scheduling has assigned anything. Never re-derived from a
+ * guess, just whatever the Scheduling Agent (or Script Breakdown Agent,
+ * before that's run) already said. */
+export function locationsInUse(breakdown: Breakdown, schedule: Schedule | null): string[] {
+  const fromSchedule = new Set(schedule?.shoot_days.flatMap((d) => d.locations) ?? []);
+  if (fromSchedule.size > 0) return Array.from(fromSchedule);
+  return Array.from(new Set(breakdown.locations.map((l) => l.name)));
+}
+
+/** Locations actually in use that the production team hasn't explicitly
+ * signed off on yet (see LocationAvailability.reviewed) — real cast/crew
+ * outreach shouldn't go out while a public location might turn out to be
+ * closed on the dates being proposed. A location the team never even
+ * created an entry for counts as unreviewed too, not "no restrictions." */
+export function unreviewedLocations(
+  breakdown: Breakdown,
+  schedule: Schedule | null,
+  locationAvailability: Record<string, LocationAvailability>
+): string[] {
+  return locationsInUse(breakdown, schedule).filter(
+    (name) => !isLocationReviewed(locationAvailability[name] ?? emptyAvailability(name))
+  );
+}
+
+/** Cross-checks every date in a candidate shoot block against every
+ * in-use location's hard constraints (days of week, date window) — the
+ * same real arithmetic used everywhere else, just run before a block is
+ * locked instead of after. Returns one message per violation found, so
+ * a block that's genuinely bad (e.g. it only lands on days a public
+ * park is closed) gets flagged before anyone picks it, not after. */
+export function candidateBlockConflicts(
+  block: string[],
+  locationAvailability: Record<string, LocationAvailability>,
+  namesToCheck: string[]
+): string[] {
+  const messages: string[] = [];
+  for (const name of namesToCheck) {
+    const avail = locationAvailability[name];
+    if (!avail) continue;
+    for (const dateStr of block) {
+      const problem = checkAvailability(dateStr, name, avail);
+      if (problem) messages.push(problem);
+    }
+  }
+  return messages;
 }
 
 /** Searches forward day-by-day (capped at ~4 months out) for the next

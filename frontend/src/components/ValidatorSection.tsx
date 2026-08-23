@@ -32,7 +32,7 @@ export default function ValidatorSection({ schedule }: { schedule: Schedule }) {
                 <p
                   key={i}
                   className={`text-xs ${
-                    issue.severity === "error" ? "text-red-300" : "text-amber"
+                    issue.severity === "error" ? "text-red-700" : "text-amber"
                   }`}
                 >
                   {issue.day_number !== null ? `Day ${issue.day_number}: ` : ""}

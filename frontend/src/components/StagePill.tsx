@@ -7,7 +7,9 @@ export default function StagePill({ label, done }: { label: string; done: boolea
     >
       <span
         className={`flex h-3.5 w-3.5 items-center justify-center rounded-full text-[9px] ${
-          done ? "bg-accent text-accent-ink" : "border border-edge"
+          done
+            ? "bg-gradient-to-br from-accent to-coral text-accent-ink shadow-[0_2px_6px_-1px_rgba(217,100,10,0.6)]"
+            : "border border-edge"
         }`}
       >
         {done ? "✓" : ""}

@@ -1,37 +1,48 @@
+// "Locations" and "Planning" used to be separate tabs; both are now
+// folded into "Dates" (one top-to-bottom flow: set the shoot window →
+// check it against location research → send cast/crew/other outreach →
+// resolve flagged conflicts → get a real calendar). "Availability" is
+// now a read-only production dashboard, not where outreach is sent from.
 export type StageKey =
   | "breakdown"
   | "scheduling"
   | "validator"
-  | "locations"
   | "callSheet"
-  | "availability"
-  | "planning"
   | "dates"
-  | "status";
+  | "status"
+  | "availability";
 
 export const STAGE_LABELS: Record<StageKey, string> = {
   breakdown: "Breakdown",
   scheduling: "Scheduling",
   validator: "Validator",
-  locations: "Locations",
   callSheet: "Call Sheet",
-  availability: "Availability",
-  planning: "Planning",
   dates: "Dates",
   status: "Status",
+  availability: "Availability",
 };
 
 export const STAGE_ORDER: StageKey[] = [
   "breakdown",
   "scheduling",
   "validator",
-  "locations",
   "callSheet",
-  "status",
-  "planning",
-  "availability",
   "dates",
+  "status",
+  "availability",
 ];
+
+// --- Shoot-date window (priority-ladder candidate-block picking) ---
+
+export interface DateWindow {
+  start: string; // "YYYY-MM-DD"
+  end: string; // "YYYY-MM-DD"
+  blackout_dates: string[];
+  num_shoot_days: number;
+  candidate_blocks: string[][]; // up to 3 real N-day options, computed backend-side
+  locked_block: string[] | null;
+  error: string;
+}
 
 // --- Backend pipeline output shapes (must match backend/common/instructions.py schemas) ---
 
@@ -138,6 +149,7 @@ export interface LocationResearch {
   research_blocked: boolean;
   permit_notes: string;
   weather_notes: string;
+  hours_notes: string; // real operating hours / days closed for a public location — empty if private property, blocked, or not found (never guessed)
   logistics_notes: string;
   nearest_hospital: string; // name/address/phone, real search result — empty if not found or blocked
   emergency_contacts: string; // local police/fire non-emergency numbers, real search result — empty if not found or blocked
@@ -157,6 +169,7 @@ export interface CallSheetLocation {
   name: string;
   permit_notes: string;
   weather_notes: string;
+  hours_notes: string;
   logistics_notes: string;
   nearest_hospital: string;
   emergency_contacts: string;
@@ -247,10 +260,24 @@ export interface ProposedPeriod {
   end: string; // "YYYY-MM-DD"
 }
 
+// Present only once the filmmaker has set a shoot-date window (Dates
+// tab). Reflects this specific actor's place in the combined
+// cast/crew/other priority ladder — never guessed, computed backend-side
+// from the same priority flag the filmmaker already set on this person.
+export interface ActorViewWindow {
+  num_shoot_days: number;
+  locked_block: string[] | null; // real "YYYY-MM-DD" dates once locked, else null
+  can_pick: boolean; // true only for the single highest-priority person, before anyone has locked
+  waiting_on_higher_priority: boolean;
+  candidate_blocks: string[][]; // up to 3 options, only populated when can_pick is true
+}
+
 export interface ActorView {
   project_name: string;
   actor_name: string;
   proposed_period: ProposedPeriod | null;
+  session_id: string;
+  window: ActorViewWindow | null;
   days: ActorViewDay[];
 }
 
@@ -262,6 +289,13 @@ export interface CrewMember {
   role: string;
   email: string;
   priority: boolean;
+  // Free text carried over from a spreadsheet import (see roster
+  // import) — crew has no real AvailabilityConstraint field the way
+  // locations/"Other" items do, so a stated availability window from a
+  // spreadsheet is kept here as a visible note rather than silently
+  // dropped. Never enforced — the real signal is still whatever this
+  // person confirms/proposes through their own magic link.
+  availabilityNote?: string;
 }
 
 // --- Availability constraints (frontend-only; enforced by real date
@@ -284,9 +318,16 @@ export interface AvailabilityConstraint {
 export interface LocationAvailability extends AvailabilityConstraint {
   location: string;
   address: string; // street address / GPS coordinates / cross streets — filmmaker-entered, shown on the call sheet
+  mapsUrl: string; // Google Maps link — filmmaker-entered, shown on the call sheet as a direct "open in Maps" link
   contactName: string; // property owner / location manager — filmmaker-entered, shown on the call sheet
   contactPhone: string;
   contactEmail: string;
+  // Explicit sign-off from the production team: "we've checked this
+  // location's real availability (or confirmed it has no restrictions)."
+  // Gates cast/crew/other outreach — see stageDone/locationsReady in
+  // DatesSection — so a location can't silently get skipped before
+  // people start getting emailed real (possibly wrong) dates.
+  reviewed: boolean;
 }
 
 // A rented/borrowed item, vehicle, or outside vendor — anything with its
@@ -356,6 +397,18 @@ export interface Project {
   sessionId: string;
   createdAt: number;
   updatedAt: number | null;
+  // How this project got its first data — a script upload (the full
+  // breakdown -> schedule -> call sheet pipeline applies) or an
+  // imported roster spreadsheet (no scenes, so those stages start
+  // empty and the project goes straight to Dates/Roster). Absent on
+  // projects created before this existed, which were always scripts.
+  startedFrom?: "script" | "roster";
+  // The file originally uploaded to create this project (script PDF, or
+  // roster CSV/PDF), kept so the filmmaker can open/download it later to
+  // cross-check against what got extracted. Null if none was kept — no
+  // file was uploaded (a follow-up-only project), or it was over the
+  // size cap and skipped to protect localStorage's quota.
+  sourceDocument: { name: string; mimeType: string; dataUrl: string } | null;
   breakdown: Breakdown | null;
   schedule: Schedule | null;
   locationResearch: Record<number, LocationResearch>;
@@ -364,6 +417,10 @@ export interface Project {
   availabilityLinks: Record<string, string>; // actor name -> token
   castEmails: Record<string, string>; // cast name -> email
   castPriority: Record<string, boolean>; // cast name -> priority flag
+  // Same reasoning as CrewMember.availabilityNote — cast has no
+  // AvailabilityConstraint field, so a spreadsheet-stated window is
+  // surfaced here rather than dropped. Frontend-only, never enforced.
+  castAvailabilityNote: Record<string, string>;
   crew: CrewMember[];
   proposedPeriod: ProposedPeriod | null;
   locationAvailability: Record<string, LocationAvailability>; // location name -> constraint
@@ -371,4 +428,29 @@ export interface Project {
   productionInfo: ProductionInfo; // filmmaker-entered, applies to every call sheet day
   callSheetExtras: Record<number, CallSheetDayExtras>; // day_number -> filmmaker-entered day fields
   feed: FeedStep[];
+  // The floating Command Center chat's history for this project only —
+  // a chat opened on one project never shows another project's messages.
+  // Capped at the 4 most-recently-active threads (see ChatWidget.tsx);
+  // older ones are dropped rather than growing localStorage forever.
+  chatThreads: ChatThread[];
+}
+
+// --- Command Center chat (frontend-only; see backend/common/chat_routes.py) ---
+
+export interface ChatAction {
+  name: string;
+  args: Record<string, unknown>;
+}
+
+export interface ChatMessage {
+  role: "user" | "model";
+  text: string;
+  actions?: ChatAction[];
+}
+
+export interface ChatThread {
+  id: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: ChatMessage[];
 }
