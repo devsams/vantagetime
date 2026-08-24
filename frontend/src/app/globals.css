@@ -155,15 +155,21 @@ body {
    the report itself (tab bar, sidebar, chat input, action buttons) —
    marked by id rather than by touching every surrounding component, so
    this works regardless of what else the app's layout looks like. */
+/* Printing the Day-Out-Of-Days report — same trick, different id, so
+   whichever one is actually mounted on the page at print time is the
+   one that becomes visible (the other one simply isn't in the DOM). */
 @media print {
   body * {
     visibility: hidden;
   }
   #availability-print-area,
-  #availability-print-area * {
+  #availability-print-area *,
+  #dood-print-area,
+  #dood-print-area * {
     visibility: visible;
   }
-  #availability-print-area {
+  #availability-print-area,
+  #dood-print-area {
     position: absolute;
     left: 0;
     top: 0;

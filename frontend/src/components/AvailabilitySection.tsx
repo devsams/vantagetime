@@ -416,7 +416,7 @@ export default function AvailabilitySection({
   return (
     <div id="availability-print-area">
       <StageHeader
-        index={7}
+        index={8}
         title="Dashboard"
         description="The production home screen — who's responded and who's still pending, then the final report: real confirmed dates and names, day by day and person by person. To send or resend outreach, use the Dates tab's Roster sub-tab."
         action={

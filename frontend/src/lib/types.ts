@@ -14,6 +14,7 @@ export type StageKey =
   | "dates"
   | "callSheet"
   | "tasks"
+  | "payroll"
   | "dashboard";
 
 export const STAGE_LABELS: Record<StageKey, string> = {
@@ -23,6 +24,7 @@ export const STAGE_LABELS: Record<StageKey, string> = {
   dates: "Dates",
   callSheet: "Call Sheet",
   tasks: "Task Master",
+  payroll: "Time Cards",
   dashboard: "Dashboard",
 };
 
@@ -33,6 +35,7 @@ export const STAGE_ORDER: StageKey[] = [
   "dates",
   "callSheet",
   "tasks",
+  "payroll",
   "dashboard",
 ];
 
@@ -69,6 +72,43 @@ export interface Task {
   priority: TaskPriority;
   dayNumber: number | null; // optional tie-in to a specific shoot day
   createdAt: number;
+  updatedAt: number;
+}
+
+// --- Time Cards / Payroll (frontend-only — computes real cost from
+// real logged hours and each person's own entered rate; never invents
+// or estimates a rate nobody entered). One PayRate per person, one
+// TimeCard per person per shoot day. ---
+
+export type PayBasis = "day" | "hourly";
+
+export interface PayRate {
+  basis: PayBasis;
+  rate: number; // dollars/day if basis is "day", dollars/hour if "hourly"
+  // Overtime rules — standard entertainment-industry defaults (8hr/12hr
+  // for hourly, 10hr/12hr for a day player, since a "day rate" on an
+  // indie set conventionally already covers the app's own standard
+  // 10-hour shoot day — see backend/common/tools.py's _DEFAULT_SHOOT_HOURS)
+  // — but editable per person, since real agreements vary. Never
+  // auto-applied without the filmmaker having set a rate first.
+  standardHours: number; // hours included before overtime starts
+  otThresholdHours: number; // hours before double-time starts
+  otMultiplier: number; // e.g. 1.5
+  doubleOtMultiplier: number; // e.g. 2
+}
+
+export type TimeCardStatus = "pending" | "approved";
+
+export interface TimeCard {
+  id: string;
+  dayNumber: number;
+  personName: string;
+  personType: "Cast" | "Crew";
+  callTime: string; // "HH:MM", 24h
+  wrapTime: string; // "HH:MM", 24h — earlier than callTime means it crossed midnight
+  mealBreakMinutes: number;
+  notes: string;
+  status: TimeCardStatus;
   updatedAt: number;
 }
 
@@ -483,6 +523,11 @@ export interface Project {
   chatThreads: ChatThread[];
   // Real assignable work items — see Task Master.
   tasks: Task[];
+  // Time Cards / Payroll — see lib/timecards.ts. Keyed by person name;
+  // a person with no entry here has no rate set yet, so their time
+  // cards show hours but no computed pay until one is entered.
+  payRates: Record<string, PayRate>;
+  timeCards: TimeCard[];
   // Per-location owner outreach status, keyed by location name — see
   // Autopilot. Separate from availabilityLinks (that's cast/crew/other,
   // which get a real magic-link and response tracking; a location owner

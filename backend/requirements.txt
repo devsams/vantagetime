@@ -1,4 +1,6 @@
 google-adk
+google-cloud-firestore
+google-cloud-storage
 google-genai
 parallel-web
 python-dotenv

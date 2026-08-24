@@ -1,5 +1,6 @@
 import type {
   ActorView,
+  AppSettings,
   Breakdown,
   Cancellation,
   CallSheets,
@@ -11,6 +12,7 @@ import type {
   FeedStep,
   LocationResearch,
   OutreachScheduledDay,
+  Project,
   ProposedPeriod,
   Schedule,
 } from "./types";
@@ -474,6 +476,65 @@ export async function sendChatMessage(
     return { reply: `Backend returned ${res.status}`, actions: [] };
   }
   return res.json();
+}
+
+// --- Durable Project/AppSettings persistence (see backend/common/project_store.py) ---
+//
+// Fixes VantageTime's biggest reliability gap: projects used to live
+// only in one browser's localStorage, with no backup and nothing to
+// fall back on if that storage was ever cleared or hit its quota.
+// localStorage (lib/storage.ts) still exists as a fast local cache for
+// instant paint on load, but these calls are now the source of truth —
+// every real save reaches the backend, not just the browser.
+//
+// Deliberately best-effort at this layer: every function here either
+// throws or returns null/[] on failure rather than crashing the caller,
+// because a backend hiccup should never lose in-progress work the user
+// can still see and keep editing locally — see page.tsx for how the
+// fallback to local-only operation is handled.
+
+export async function fetchProjectsRemote(): Promise<Project[]> {
+  const res = await fetch(`${API_BASE}/projects`);
+  if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+  return res.json();
+}
+
+/** Upserts one project. Deliberately takes a plain object, not a strict
+ * Project — callers that are just keeping the backend in sync (as
+ * opposed to the one-time full save right after a fresh upload) pass a
+ * version with sourceDocument's dataUrl stripped out, to avoid resending
+ * a multi-hundred-KB PDF on every unrelated save; see
+ * project_store.py's `_preserve_source_document` for the backend half
+ * of that — it keeps whatever's already stored when the incoming
+ * payload doesn't include a dataUrl. */
+export async function upsertProjectRemote<T extends { id: string }>(project: T): Promise<void> {
+  const res = await fetch(`${API_BASE}/projects/${project.id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(project),
+  });
+  if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+}
+
+export async function deleteProjectRemote(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/projects/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+}
+
+export async function fetchSettingsRemote(): Promise<AppSettings | null> {
+  const res = await fetch(`${API_BASE}/settings`);
+  if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+  const data = await res.json();
+  return Object.keys(data).length > 0 ? data : null;
+}
+
+export async function putSettingsRemote(settings: AppSettings): Promise<void> {
+  const res = await fetch(`${API_BASE}/settings`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
+  });
+  if (!res.ok) throw new Error(`Backend returned ${res.status}`);
 }
 
 export { API_BASE };

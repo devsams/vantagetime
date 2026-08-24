@@ -19,3 +19,8 @@ out/
 # ADK local session state — a mutating runtime SQLite db per agent app,
 # not source; was accidentally committed early on.
 .adk/
+
+# Local-dev-only blob storage (uploaded script/roster PDFs) — see
+# backend/common/blob_store.py. A real deployment uses a GCS bucket
+# instead (GCS_BUCKET env var), never this directory.
+backend/data/

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import AttentionBar from "@/components/AttentionBar";
 import AutopilotSection from "@/components/AutopilotSection";
 import AvailabilitySection from "@/components/AvailabilitySection";
 import BreakdownSection from "@/components/BreakdownSection";
@@ -13,9 +14,21 @@ import SettingsSection from "@/components/SettingsSection";
 import StagePill from "@/components/StagePill";
 import StageTabs from "@/components/StageTabs";
 import TaskMasterSection from "@/components/TaskMasterSection";
-import { extractRosterFromDocument, fileToBase64, importRoster, runPipeline } from "@/lib/api";
+import TimeCardsSection from "@/components/TimeCardsSection";
+import {
+  deleteProjectRemote,
+  extractRosterFromDocument,
+  fetchProjectsRemote,
+  fetchSettingsRemote,
+  fileToBase64,
+  importRoster,
+  putSettingsRemote,
+  runPipeline,
+  upsertProjectRemote,
+} from "@/lib/api";
 import { emptyProductionInfo } from "@/lib/callSheetExtras";
 import { dataUrlToObjectUrl, shouldStoreDocument, toDataUrl } from "@/lib/files";
+import { computeAttentionItems } from "@/lib/attention";
 import { applyRosterImport } from "@/lib/rosterProject";
 import { downloadRosterTemplate } from "@/lib/rosterTemplate";
 import { emptySettings, emptyTeamMember } from "@/lib/settings";
@@ -61,6 +74,8 @@ function newProject(name: string): Project {
     sourceDocument: null,
     chatThreads: [],
     tasks: [],
+    payRates: {},
+    timeCards: [],
     locationOutreach: {},
     status: "inProgress",
   };
@@ -96,6 +111,12 @@ function stageDone(project: Project, key: StageKey): boolean {
       // Done once every task that's been created has actually been
       // wrapped — not just "some tasks exist".
       return (project.tasks ?? []).length > 0 && (project.tasks ?? []).every((t) => t.status === "done");
+    case "payroll":
+      // Done once every time card that's been logged has actually been
+      // approved — not just "some hours were logged".
+      return (
+        (project.timeCards ?? []).length > 0 && (project.timeCards ?? []).every((t) => t.status === "approved")
+      );
     default:
       return false;
   }
@@ -109,6 +130,7 @@ function doneMap(project: Project): Record<StageKey, boolean> {
     callSheet: stageDone(project, "callSheet"),
     dates: stageDone(project, "dates"),
     tasks: stageDone(project, "tasks"),
+    payroll: stageDone(project, "payroll"),
     dashboard: stageDone(project, "dashboard"),
   };
 }
@@ -219,11 +241,51 @@ export default function Home() {
   const [projectTab, setProjectTab] = useState<ProjectStatus>("inProgress");
   const [dashboardView, setDashboardView] = useState<"projects" | "settings">("projects");
   const [settings, setSettings] = useState<AppSettings>(emptySettings());
+  // True once the one-time backend reconcile below has run (success or
+  // best-effort failure) — gates the outgoing sync effects further down
+  // so they can't race the reconcile and push stale local data over
+  // real backend data on first load.
+  const [backendReady, setBackendReady] = useState(false);
 
   useEffect(() => {
-    setProjects(loadProjects());
-    setSettings(loadSettings());
+    const localProjects = loadProjects();
+    const localSettings = loadSettings();
+    setProjects(localProjects);
+    setSettings(localSettings);
     setHydrated(true);
+
+    // Reconcile with the durable backend copy — see lib/api.ts and
+    // backend/common/project_store.py. localStorage is only ever a fast
+    // local cache now; this is what actually protects against losing a
+    // project if the browser's storage is cleared or a device is
+    // switched. Best-effort: if the backend can't be reached, the app
+    // keeps working from the local cache exactly as it always did.
+    (async () => {
+      try {
+        const remoteProjects = await fetchProjectsRemote();
+        if (remoteProjects.length > 0) {
+          setProjects(remoteProjects);
+        } else if (localProjects.length > 0) {
+          // Nothing in the backend yet, but this browser already has
+          // projects from before this feature shipped — push them up
+          // once so they're not stuck local-only forever.
+          await Promise.all(localProjects.map((p) => upsertProjectRemote(p)));
+        }
+      } catch {
+        // Backend unreachable — proceed local-only.
+      }
+      try {
+        const remoteSettings = await fetchSettingsRemote();
+        if (remoteSettings) {
+          setSettings(remoteSettings);
+        } else {
+          await putSettingsRemote(localSettings);
+        }
+      } catch {
+        // Backend unreachable — proceed local-only.
+      }
+      setBackendReady(true);
+    })();
   }, []);
 
   useEffect(() => {
@@ -233,6 +295,33 @@ export default function Home() {
   useEffect(() => {
     if (hydrated) saveSettings(settings);
   }, [settings, hydrated]);
+
+  // Keeps the backend in sync on every change, same trigger as the
+  // localStorage save above. Strips the (large) sourceDocument dataUrl
+  // from routine syncs — the backend already has it from the initial
+  // upload and preserves it automatically when it's omitted (see
+  // project_store.py's _preserve_source_document) — so this never
+  // resends a multi-hundred-KB PDF just because a task got added.
+  useEffect(() => {
+    if (!backendReady) return;
+    projects.forEach((p) => {
+      const syncPayload = p.sourceDocument
+        ? { ...p, sourceDocument: { name: p.sourceDocument.name, mimeType: p.sourceDocument.mimeType } }
+        : p;
+      upsertProjectRemote(syncPayload).catch(() => {
+        // Best-effort — localStorage still has the real data; this
+        // effect re-fires on every subsequent change, so the next
+        // successful sync catches it back up automatically.
+      });
+    });
+  }, [projects, backendReady]);
+
+  useEffect(() => {
+    if (!backendReady) return;
+    putSettingsRemote(settings).catch(() => {
+      // Same fallback reasoning as the project sync above.
+    });
+  }, [settings, backendReady]);
 
   const activeProject = projects.find((p) => p.id === activeId) ?? null;
   const liveProjects = projects.filter((p) => p.status === "live");
@@ -450,6 +539,12 @@ export default function Home() {
     setProjects((prev) => [...prev, project]);
     setActiveId(project.id);
     setActiveStage("breakdown");
+    // The one time the full sourceDocument (including its dataUrl) needs
+    // to actually reach the backend — every sync after this strips it
+    // out to avoid resending a multi-hundred-KB PDF on every save (see
+    // the generic sync effect above and _preserve_source_document
+    // backend-side, which keeps this once it's here).
+    upsertProjectRemote(project).catch(() => {});
 
     await submitToPipeline(project, [
       { text: "Break this script down and build a validated shoot schedule." },
@@ -513,6 +608,9 @@ export default function Home() {
       // imported roster (missing emails, location contacts) are flagged
       // immediately instead of only surfacing later in Dates.
       setActiveStage("autopilot");
+      // Same one-time full-document push as the script upload path — see
+      // the comment there.
+      upsertProjectRemote(project).catch(() => {});
       if (result.errors.length > 0 || usedFallback) {
         const prefix = usedFallback
           ? "That CSV didn't match the standard template, so it was read with the smarter extractor instead. "
@@ -589,11 +687,18 @@ export default function Home() {
   function handleClearAllData() {
     if (
       !window.confirm(
-        "Clear all local data? This permanently deletes every project and your settings from this browser. This can't be undone."
+        "Clear all data? This permanently deletes every project and your settings, from this browser and from the backend. This can't be undone."
       )
     ) {
       return;
     }
+    // Best-effort backend cleanup — mirrors what's about to happen to
+    // local state below. A failure here just leaves a stale backend
+    // copy around rather than blocking the local clear the user asked
+    // for; nothing critical, just less tidy.
+    projects.forEach((p) => {
+      deleteProjectRemote(p.id).catch(() => {});
+    });
     setProjects([]);
     setSettings(emptySettings());
     setActiveId(null);
@@ -602,6 +707,7 @@ export default function Home() {
   if (activeProject) {
     const projectTitle = activeProject.breakdown?.project_name || humanizeFileName(activeProject.name);
     const done = doneMap(activeProject);
+    const attentionItems = computeAttentionItems(activeProject);
 
     return (
       <div className="flex min-h-full flex-col bg-bg">
@@ -648,6 +754,7 @@ export default function Home() {
             </span>
           </div>
         </header>
+        <AttentionBar items={attentionItems} onOpenAutopilot={() => setActiveStage("autopilot")} />
         <div className="filmstrip" />
 
         <div className="border-b border-edge px-8 py-5">
@@ -683,6 +790,9 @@ export default function Home() {
               locationResearch={activeProject.locationResearch ?? {}}
               castOutreach={activeProject.castOutreach}
               locationOutreach={activeProject.locationOutreach ?? {}}
+              tasks={activeProject.tasks ?? []}
+              timeCards={activeProject.timeCards ?? []}
+              payRates={activeProject.payRates ?? {}}
               onUpdateLocationOutreach={(locationOutreach) =>
                 updateProject(activeProject.id, { locationOutreach })
               }
@@ -751,6 +861,19 @@ export default function Home() {
               locations={(activeProject.breakdown?.locations ?? []).map((l) => l.name)}
               shootDayNumbers={activeProject.schedule?.shoot_days.map((d) => d.day_number) ?? []}
               onUpdateTasks={(tasks) => updateProject(activeProject.id, { tasks })}
+            />
+          )}
+
+          {activeStage === "payroll" && (
+            <TimeCardsSection
+              projectName={projectTitle}
+              cast={activeProject.breakdown?.cast ?? []}
+              crew={activeProject.crew ?? []}
+              shootDays={activeProject.schedule?.shoot_days ?? []}
+              timeCards={activeProject.timeCards ?? []}
+              payRates={activeProject.payRates ?? {}}
+              onUpdateTimeCards={(timeCards) => updateProject(activeProject.id, { timeCards })}
+              onUpdatePayRates={(payRates) => updateProject(activeProject.id, { payRates })}
             />
           )}
 

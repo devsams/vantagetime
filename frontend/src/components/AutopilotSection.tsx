@@ -6,6 +6,7 @@ import { fetchDateWindow, notifyLocationOwner, registerAvailabilityLinks, setDat
 import { candidateBlockConflicts, emptyAvailability, locationsInUse, unreviewedLocations } from "@/lib/locationAvailability";
 import { draftLocationEmail } from "@/lib/locationOutreach";
 import { friendlyDate } from "@/lib/text";
+import { computeHoursWorked, computePay, formatCurrency } from "@/lib/timecards";
 import {
   Breakdown,
   CallSheets,
@@ -15,9 +16,12 @@ import {
   LocationAvailability,
   LocationOutreachStatus,
   LocationResearch,
+  PayRate,
   ProposedPeriod,
   Schedule,
   StageKey,
+  Task,
+  TimeCard,
 } from "@/lib/types";
 
 function blockLabel(block: string[]): string {
@@ -73,6 +77,9 @@ export default function AutopilotSection({
   locationResearch,
   castOutreach,
   locationOutreach,
+  tasks,
+  timeCards,
+  payRates,
   onUpdateLocationOutreach,
   onUpdateCastEmails,
   onUpdateLocationAvailability,
@@ -93,6 +100,9 @@ export default function AutopilotSection({
   locationResearch: Record<number, LocationResearch>;
   castOutreach: CastOutreach | null;
   locationOutreach: Record<string, LocationOutreachStatus>;
+  tasks: Task[];
+  timeCards: TimeCard[];
+  payRates: Record<string, PayRate>;
   onUpdateLocationOutreach: (v: Record<string, LocationOutreachStatus>) => void;
   onUpdateCastEmails: (emails: Record<string, string>) => void;
   onUpdateLocationAvailability: (v: Record<string, LocationAvailability>) => void;
@@ -179,6 +189,14 @@ export default function AutopilotSection({
   const actorsDone = castLinksTotal > 0 && castLinksSent === castLinksTotal;
   const missingCastEmails = (castOutreach?.cast_outreach ?? []).filter((c) => !castEmails[c.name]?.trim());
   const planDone = (schedule?.shoot_days.some((d) => d.date) ?? false) && !!callSheets && callSheets.call_sheets.length > 0;
+  const openTasks = tasks.filter((t) => t.status !== "done");
+  const tasksDone = tasks.length > 0 && openTasks.length === 0;
+  const openTimeCards = timeCards.filter((t) => t.status !== "approved");
+  const timeCardsDone = timeCards.length > 0 && openTimeCards.length === 0;
+  const totalLaborCost = timeCards.reduce((sum, t) => {
+    const hours = computeHoursWorked(t.callTime, t.wrapTime, t.mealBreakMinutes);
+    return sum + computePay(hours, payRates[t.personName]).totalPay;
+  }, 0);
 
   function draftFor(location: string): { subject: string; body: string } {
     if (drafts[location]) return drafts[location];
@@ -593,6 +611,43 @@ export default function AutopilotSection({
           ) : (
             <p className="text-xs text-faint">Not ready yet — finish the steps above.</p>
           )}
+        </StepCard>
+
+        <StepCard n={7} title="Tasks" status={tasks.length === 0 ? "pending" : tasksDone ? "done" : "attention"}>
+          {tasks.length === 0 ? (
+            <p className="text-xs text-faint">No tasks added yet.</p>
+          ) : (
+            <p className="text-xs text-dim">
+              {openTasks.length} open, {tasks.length - openTasks.length} done, {tasks.length} total.
+            </p>
+          )}
+          <button
+            onClick={() => onGoToStage("tasks")}
+            className="tracked mt-2 rounded-full border border-edge px-3 py-1.5 text-[10px] uppercase text-faint transition hover:text-accent"
+          >
+            Go to Task Master →
+          </button>
+        </StepCard>
+
+        <StepCard
+          n={8}
+          title="Time cards"
+          status={timeCards.length === 0 ? "pending" : timeCardsDone ? "done" : "attention"}
+        >
+          {timeCards.length === 0 ? (
+            <p className="text-xs text-faint">No time cards logged yet.</p>
+          ) : (
+            <p className="text-xs text-dim">
+              {openTimeCards.length} pending, {timeCards.length - openTimeCards.length} approved,{" "}
+              {timeCards.length} total · {formatCurrency(totalLaborCost)} total labor cost.
+            </p>
+          )}
+          <button
+            onClick={() => onGoToStage("payroll")}
+            className="tracked mt-2 rounded-full border border-edge px-3 py-1.5 text-[10px] uppercase text-faint transition hover:text-accent"
+          >
+            Go to Time Cards →
+          </button>
         </StepCard>
       </div>
     </div>

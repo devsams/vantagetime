@@ -83,6 +83,8 @@ export function loadProjects(): Project[] {
       feed: p.feed ?? [],
       chatThreads: p.chatThreads ?? [],
       tasks: p.tasks ?? [],
+      payRates: p.payRates ?? {},
+      timeCards: p.timeCards ?? [],
       locationOutreach: p.locationOutreach ?? {},
       status: p.status ?? (legacyArchived ? "archived" : "inProgress"),
     }));

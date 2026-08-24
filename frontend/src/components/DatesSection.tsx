@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import StageHeader from "./StageHeader";
+import DoodSection from "./DoodSection";
 import PlanningSection from "./PlanningSection";
 import ScheduleSection from "./ScheduleSection";
+import StripboardSection from "./StripboardSection";
 import ValidatorSection from "./ValidatorSection";
 import { buildGoogleCalendarUrl, castNamesForDay } from "@/lib/calendar";
 import {
@@ -26,10 +28,11 @@ import {
   Schedule,
 } from "@/lib/types";
 
-type SubTab = "window" | "scheduling" | "locations" | "roster";
+type SubTab = "window" | "scheduling" | "dood" | "locations" | "roster";
 const SUB_TABS: { key: SubTab; label: string }[] = [
   { key: "window", label: "Shoot Window" },
   { key: "scheduling", label: "Scheduling" },
+  { key: "dood", label: "Day-Out-Of-Days" },
   { key: "locations", label: "Location Research" },
   { key: "roster", label: "Roster & Availability" },
 ];
@@ -543,9 +546,13 @@ export default function DatesSection({
             </div>
           )}
 
+          <StripboardSection breakdown={breakdown} schedule={schedule} onUpdateSchedule={onUpdateSchedule} />
+
           <ScheduleSection schedule={schedule} />
         </>
       )}
+
+      {subTab === "dood" && <DoodSection projectName={projectName} breakdown={breakdown} schedule={schedule} />}
 
       {subTab === "locations" &&
         (slots.length === 0 ? (
