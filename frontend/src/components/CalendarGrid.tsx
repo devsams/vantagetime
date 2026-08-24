@@ -78,7 +78,7 @@ export default function CalendarGrid({ shootDays }: { shootDays: ShootDay[] }) {
                             Day {shoot.day_number}
                           </div>
                           <div className="truncate text-[9px] text-dim">
-                            {shoot.locations.join(", ")}
+                            {(shoot.locations ?? []).join(", ")}
                           </div>
                           {shoot.weather_flag && (
                             <div className="text-[9px] text-amber" title={shoot.weather_flag}>
@@ -110,18 +110,18 @@ export default function CalendarGrid({ shootDays }: { shootDays: ShootDay[] }) {
         </div>
       )}
 
-      {dated.some((d) => d.cast_hours.length > 0) && (
+      {dated.some((d) => (d.cast_hours ?? []).length > 0) && (
         <div className="mt-6 space-y-2">
           <div className="tracked text-[10px] text-faint uppercase">Cast Hours</div>
           {dated
-            .filter((d) => d.cast_hours.length > 0)
+            .filter((d) => (d.cast_hours ?? []).length > 0)
             .map((d) => (
               <div key={d.day_number} className="rounded-md border border-edge/60 bg-panel2 px-3 py-2">
                 <div className="text-xs text-ink">
                   Day {d.day_number} ({d.date})
                 </div>
                 <div className="mt-1 flex flex-wrap gap-1.5">
-                  {d.cast_hours.map((c) => (
+                  {(d.cast_hours ?? []).map((c) => (
                     <span key={c.name} className="rounded-full bg-panel px-2 py-0.5 text-[10px] text-dim">
                       {c.name} · {c.hours_needed}h
                     </span>

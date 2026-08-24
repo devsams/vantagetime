@@ -1,21 +1,20 @@
-import StageHeader from "./StageHeader";
 import { Schedule, ScheduleAttemptDay, ShootDay } from "@/lib/types";
 
 function daySummary(day: ScheduleAttemptDay | ShootDay): string {
   return `Day ${day.day_number} (${day.locations.join(", ")}) → Scenes ${day.scenes.join(", ")}`;
 }
 
+/** The full retry/issue breakdown behind the pass/fail badge shown next
+ * to the Scheduling sub-tab — a plain function, not a model, checks for
+ * hard violations; if it finds one, the Scheduling Agent has to fix it
+ * and gets checked again. Embedded (no header of its own) inside a
+ * "Show details" toggle in the Dates tab, since most of the time the
+ * badge alone is all anyone needs to see. */
 export default function ValidatorSection({ schedule }: { schedule: Schedule }) {
   const retried = !!schedule.first_attempt;
 
   return (
     <div>
-      <StageHeader
-        index={3}
-        title="Schedule Validator"
-        description="A plain function, not a model — checks for hard violations. If it finds one, the Scheduling Agent has to fix it and gets checked again."
-      />
-
       {retried && schedule.first_attempt ? (
         <div className="space-y-4">
           <div className="rounded-xl border border-edge bg-panel p-5">

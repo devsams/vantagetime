@@ -1,18 +1,48 @@
 import StageHeader from "./StageHeader";
-import { Breakdown } from "@/lib/types";
+import { Breakdown, Project } from "@/lib/types";
 
-export default function BreakdownSection({ breakdown }: { breakdown: Breakdown }) {
+export default function BreakdownSection({
+  breakdown,
+  sourceDocument,
+  onViewSourceDocument,
+  onDownloadSourceDocument,
+}: {
+  breakdown: Breakdown;
+  sourceDocument?: Project["sourceDocument"];
+  onViewSourceDocument?: () => void;
+  onDownloadSourceDocument?: () => void;
+}) {
   return (
     <div>
       <StageHeader
-        index={1}
+        index={2}
         title="Script Breakdown Agent"
         description="Reads the uploaded PDF directly and extracts every scene into structured data — no manual re-typing."
         meta={`${breakdown.scene_count} scenes detected · ${breakdown.page_count} pages · est. runtime ${breakdown.estimated_runtime_minutes} min`}
         action={
-          <span className="tracked rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs text-accent">
-            native PDF read
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="tracked rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs text-accent">
+              native PDF read
+            </span>
+            {sourceDocument && (
+              <>
+                <button
+                  onClick={onViewSourceDocument}
+                  title={sourceDocument.name}
+                  className="tracked rounded-full border border-edge px-3 py-1.5 text-xs text-dim uppercase transition hover:text-ink"
+                >
+                  View original
+                </button>
+                <button
+                  onClick={onDownloadSourceDocument}
+                  title={sourceDocument.name}
+                  className="tracked rounded-full border border-edge px-3 py-1.5 text-xs text-dim uppercase transition hover:text-ink"
+                >
+                  Download
+                </button>
+              </>
+            )}
+          </div>
         }
       />
 

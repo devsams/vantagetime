@@ -1,36 +1,76 @@
-// "Locations" and "Planning" used to be separate tabs; both are now
-// folded into "Dates" (one top-to-bottom flow: set the shoot window →
-// check it against location research → send cast/crew/other outreach →
-// resolve flagged conflicts → get a real calendar). "Availability" is
-// now a read-only production dashboard, not where outreach is sent from.
+// Trimmed from seven tabs down to four for a simpler top-level nav:
+// "Scheduling" and "Validator" are now folded into "Dates" (a scheduling
+// sub-tab, with validator pass/fail as an inline badge, not a separate
+// click-through). "Status" is folded into "Dashboard" (the former
+// "Availability" tab, renamed — it already covered response tracking in
+// its Roster Detail table; the old Status tab's compact per-person
+// banner now lives there too). "Call Sheet" is the default tab a
+// project opens to, since it's the document people actually use day to
+// day; "Breakdown" is demoted to a reference tab.
 export type StageKey =
+  | "autopilot"
   | "breakdown"
-  | "scheduling"
-  | "validator"
-  | "callSheet"
+  | "members"
   | "dates"
-  | "status"
-  | "availability";
+  | "callSheet"
+  | "tasks"
+  | "dashboard";
 
 export const STAGE_LABELS: Record<StageKey, string> = {
+  autopilot: "Autopilot",
   breakdown: "Breakdown",
-  scheduling: "Scheduling",
-  validator: "Validator",
-  callSheet: "Call Sheet",
+  members: "Members",
   dates: "Dates",
-  status: "Status",
-  availability: "Availability",
+  callSheet: "Call Sheet",
+  tasks: "Task Master",
+  dashboard: "Dashboard",
 };
 
 export const STAGE_ORDER: StageKey[] = [
+  "autopilot",
   "breakdown",
-  "scheduling",
-  "validator",
-  "callSheet",
+  "members",
   "dates",
-  "status",
-  "availability",
+  "callSheet",
+  "tasks",
+  "dashboard",
 ];
+
+// A project's place in the dashboard, set by hand rather than inferred —
+// "shooting" isn't something the data can reliably detect (a validated
+// schedule doesn't mean cameras are actually rolling today), so the
+// filmmaker marks it themselves. Replaces the old plain archived boolean.
+export type ProjectStatus = "live" | "inProgress" | "archived";
+
+export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
+  live: "Live",
+  inProgress: "In Progress",
+  archived: "Archive",
+};
+
+export const PROJECT_STATUS_ORDER: ProjectStatus[] = ["live", "inProgress", "archived"];
+
+// --- Task Master (real assignable work items — cast, crew, or anyone
+// on the roster — replaces the old free-text "Additional day notes" on
+// the Call Sheet, which had no assignee/status/priority of its own). ---
+
+export type TaskStatus = "todo" | "in_progress" | "done";
+export type TaskPriority = "low" | "medium" | "high";
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  assignee: string; // must be a real cast or crew name, or "" (unassigned)
+  assigneeType: "Cast" | "Crew" | "";
+  status: TaskStatus;
+  dueDate: string; // "YYYY-MM-DD" or ""
+  location: string;
+  priority: TaskPriority;
+  dayNumber: number | null; // optional tie-in to a specific shoot day
+  createdAt: number;
+  updatedAt: number;
+}
 
 // --- Shoot-date window (priority-ladder candidate-block picking) ---
 
@@ -330,6 +370,14 @@ export interface LocationAvailability extends AvailabilityConstraint {
   reviewed: boolean;
 }
 
+// One-way owner notification, not a magic-link response flow — see
+// Autopilot / lib/locationOutreach.ts.
+export interface LocationOutreachStatus {
+  sent: boolean;
+  sentAt: number | null;
+  lastError?: string;
+}
+
 // A rented/borrowed item, vehicle, or outside vendor — anything with its
 // own name, a contact email, and an availability window, tracked the
 // same way a location is. Manually added/removed like crew (not
@@ -433,6 +481,47 @@ export interface Project {
   // Capped at the 4 most-recently-active threads (see ChatWidget.tsx);
   // older ones are dropped rather than growing localStorage forever.
   chatThreads: ChatThread[];
+  // Real assignable work items — see Task Master.
+  tasks: Task[];
+  // Per-location owner outreach status, keyed by location name — see
+  // Autopilot. Separate from availabilityLinks (that's cast/crew/other,
+  // which get a real magic-link and response tracking; a location owner
+  // just gets a one-way notification email, no link, no response UI).
+  locationOutreach: Record<string, LocationOutreachStatus>;
+  // See ProjectStatus — set by the filmmaker, drives which dashboard tab
+  // (Live / In Progress / Archive) a project shows up in.
+  status: ProjectStatus;
+}
+
+// --- Global app settings (frontend-only, not tied to any single project) ---
+// Separate from Project.productionInfo, which is per-project and shown on
+// call sheets. This is the filmmaker's standing info — the production
+// company's identity and the regular team they work with across
+// productions — kept once instead of re-typed on every new project.
+
+export interface CompanyProfile {
+  companyName: string;
+  address: string;
+  phone: string;
+  email: string;
+  website: string;
+}
+
+// A recurring collaborator — the UPM, DP, sound person, etc. you work with
+// across productions. Freeform role since indie crews don't fit fixed
+// titles. Not linked to any project's cast/crew roster (Members tab) —
+// this is a reference directory, not enforced or auto-applied anywhere.
+export interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  email: string;
+  phone: string;
+}
+
+export interface AppSettings {
+  companyProfile: CompanyProfile;
+  team: TeamMember[];
 }
 
 // --- Command Center chat (frontend-only; see backend/common/chat_routes.py) ---

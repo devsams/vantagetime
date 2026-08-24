@@ -1,25 +1,39 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import AutopilotSection from "@/components/AutopilotSection";
 import AvailabilitySection from "@/components/AvailabilitySection";
 import BreakdownSection from "@/components/BreakdownSection";
 import CallSheetSection from "@/components/CallSheetSection";
 import ChatPanel from "@/components/ChatPanel";
 import DatesSection from "@/components/DatesSection";
 import { ScriptIcon, SpreadsheetIcon } from "@/components/EntryIcons";
-import ScheduleSection from "@/components/ScheduleSection";
+import MembersSection from "@/components/MembersSection";
+import SettingsSection from "@/components/SettingsSection";
 import StagePill from "@/components/StagePill";
 import StageTabs from "@/components/StageTabs";
-import StatusSection from "@/components/StatusSection";
-import ValidatorSection from "@/components/ValidatorSection";
+import TaskMasterSection from "@/components/TaskMasterSection";
 import { extractRosterFromDocument, fileToBase64, importRoster, runPipeline } from "@/lib/api";
 import { emptyProductionInfo } from "@/lib/callSheetExtras";
 import { dataUrlToObjectUrl, shouldStoreDocument, toDataUrl } from "@/lib/files";
 import { applyRosterImport } from "@/lib/rosterProject";
 import { downloadRosterTemplate } from "@/lib/rosterTemplate";
-import { loadProjects, saveProjects } from "@/lib/storage";
+import { emptySettings, emptyTeamMember } from "@/lib/settings";
+import { loadProjects, loadSettings, saveProjects, saveSettings } from "@/lib/storage";
 import { humanizeFileName } from "@/lib/text";
-import { ChatAction, Project, STAGE_LABELS, STAGE_ORDER, StageKey } from "@/lib/types";
+import {
+  AppSettings,
+  ChatAction,
+  CompanyProfile,
+  PROJECT_STATUS_LABELS,
+  PROJECT_STATUS_ORDER,
+  Project,
+  ProjectStatus,
+  STAGE_LABELS,
+  STAGE_ORDER,
+  StageKey,
+  TeamMember,
+} from "@/lib/types";
 
 function newProject(name: string): Project {
   return {
@@ -46,28 +60,42 @@ function newProject(name: string): Project {
     feed: [],
     sourceDocument: null,
     chatThreads: [],
+    tasks: [],
+    locationOutreach: {},
+    status: "inProgress",
   };
 }
 
 function stageDone(project: Project, key: StageKey): boolean {
   switch (key) {
+    case "autopilot":
+      // No real "done" state of its own — it's a guided view over the
+      // other stages, not a milestone. Treat it as done once the plan
+      // it walks you to is itself done.
+      return stageDone(project, "callSheet") && (project.schedule?.shoot_days.some((d) => d.date) ?? false);
     case "breakdown":
       return !!project.breakdown;
-    case "scheduling":
-      return !!project.schedule;
-    case "validator":
-      return !!project.schedule;
+    case "members":
+      return (
+        (project.breakdown?.cast.length ?? 0) > 0 ||
+        (project.crew ?? []).length > 0 ||
+        (project.otherItems ?? []).length > 0
+      );
     case "callSheet":
       return !!project.callSheets && project.callSheets.call_sheets.length > 0;
     case "dates":
-      // "Dates" now covers location research + roster/outreach + the
-      // real per-day calendar — done once real dates are actually
-      // assigned, the end of that whole flow.
+      // "Dates" now covers scheduling/validation + location research +
+      // roster/outreach + the real per-day calendar — done once real
+      // dates are actually assigned, the end of that whole flow.
       return project.schedule?.shoot_days.some((d) => d.date) ?? false;
-    case "availability":
+    case "dashboard":
       // The dashboard itself has no "done" state — treat it as done once
       // outreach has actually gone out to at least one person.
       return Object.keys(project.availabilityLinks ?? {}).length > 0;
+    case "tasks":
+      // Done once every task that's been created has actually been
+      // wrapped — not just "some tasks exist".
+      return (project.tasks ?? []).length > 0 && (project.tasks ?? []).every((t) => t.status === "done");
     default:
       return false;
   }
@@ -75,17 +103,31 @@ function stageDone(project: Project, key: StageKey): boolean {
 
 function doneMap(project: Project): Record<StageKey, boolean> {
   return {
+    autopilot: stageDone(project, "autopilot"),
     breakdown: stageDone(project, "breakdown"),
-    scheduling: stageDone(project, "scheduling"),
-    validator: stageDone(project, "validator"),
+    members: stageDone(project, "members"),
     callSheet: stageDone(project, "callSheet"),
     dates: stageDone(project, "dates"),
-    status: stageDone(project, "status"),
-    availability: stageDone(project, "availability"),
+    tasks: stageDone(project, "tasks"),
+    dashboard: stageDone(project, "dashboard"),
   };
 }
 
-function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void }) {
+const PROJECT_STATUS_BADGE_STYLE: Record<ProjectStatus, string> = {
+  live: "border-mint/50 bg-mint/10 text-mint",
+  inProgress: "border-accent/50 bg-accent/10 text-accent",
+  archived: "border-edge text-faint",
+};
+
+function ProjectCard({
+  project,
+  onOpen,
+  onSetStatus,
+}: {
+  project: Project;
+  onOpen: () => void;
+  onSetStatus: (status: ProjectStatus) => void;
+}) {
   const stats = project.breakdown
     ? [
         { value: project.breakdown.scene_count, label: "Scenes" },
@@ -96,11 +138,22 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
     : [];
 
   return (
-    <div className="rounded-2xl border border-edge bg-panel p-8 shadow-[0_20px_50px_-30px_rgba(23,19,13,0.35)]">
+    <div
+      className={`rounded-2xl border border-edge bg-panel p-8 shadow-[0_20px_50px_-30px_rgba(23,19,13,0.35)] ${
+        project.status === "archived" ? "opacity-60" : ""
+      }`}
+    >
       <div className="flex items-start justify-between gap-6">
         <div>
-          <div className="tracked text-xs font-medium text-accent uppercase">
-            {project.startedFrom === "roster" ? "From spreadsheet" : project.breakdown?.format ?? "Processing"}
+          <div className="flex items-center gap-2">
+            <div className="tracked text-xs font-medium text-accent uppercase">
+              {project.startedFrom === "roster" ? "From spreadsheet" : project.breakdown?.format ?? "Processing"}
+            </div>
+            <span
+              className={`tracked rounded-full border px-2 py-0.5 text-[10px] uppercase ${PROJECT_STATUS_BADGE_STYLE[project.status]}`}
+            >
+              {PROJECT_STATUS_LABELS[project.status]}
+            </span>
           </div>
           <h2
             className="title-gradient mt-1 text-5xl leading-none uppercase"
@@ -112,12 +165,26 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
             <p className="mt-3 max-w-xl text-sm text-dim">{project.breakdown.logline}</p>
           )}
         </div>
-        <button
-          onClick={onOpen}
-          className="btn-poster shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold"
-        >
-          Open Project →
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={onOpen}
+            className="btn-poster rounded-full px-5 py-2.5 text-sm font-semibold"
+          >
+            Open Project →
+          </button>
+          <select
+            value={project.status}
+            onChange={(e) => onSetStatus(e.target.value as ProjectStatus)}
+            title="Status"
+            className="tracked rounded-full border border-edge bg-panel px-3 py-2.5 text-xs text-dim uppercase transition hover:text-ink focus:border-accent focus:outline-none"
+          >
+            {PROJECT_STATUS_ORDER.map((s) => (
+              <option key={s} value={s}>
+                {PROJECT_STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {stats.length > 0 && (
@@ -144,15 +211,18 @@ export default function Home() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [activeStage, setActiveStage] = useState<StageKey>("breakdown");
+  const [activeStage, setActiveStage] = useState<StageKey>("callSheet");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const rosterInputRef = useRef<HTMLInputElement>(null);
+  const [projectTab, setProjectTab] = useState<ProjectStatus>("inProgress");
+  const [dashboardView, setDashboardView] = useState<"projects" | "settings">("projects");
+  const [settings, setSettings] = useState<AppSettings>(emptySettings());
 
   useEffect(() => {
     setProjects(loadProjects());
+    setSettings(loadSettings());
     setHydrated(true);
   }, []);
 
@@ -160,7 +230,19 @@ export default function Home() {
     if (hydrated) saveProjects(projects);
   }, [projects, hydrated]);
 
+  useEffect(() => {
+    if (hydrated) saveSettings(settings);
+  }, [settings, hydrated]);
+
   const activeProject = projects.find((p) => p.id === activeId) ?? null;
+  const liveProjects = projects.filter((p) => p.status === "live");
+  const inProgressProjects = projects.filter((p) => p.status === "inProgress");
+  const archivedProjects = projects.filter((p) => p.status === "archived");
+  const projectsByStatus: Record<ProjectStatus, Project[]> = {
+    live: liveProjects,
+    inProgress: inProgressProjects,
+    archived: archivedProjects,
+  };
 
   function updateProject(id: string, patch: Partial<Project>) {
     setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
@@ -373,6 +455,12 @@ export default function Home() {
       { text: "Break this script down and build a validated shoot schedule." },
       { inlineData: { displayName: file.name, data, mimeType: "application/pdf" } },
     ]);
+
+    // Land on Autopilot once the breakdown is in, not Call Sheet — this is
+    // the one moment the checklist of what's missing (cast emails, location
+    // contacts, blocked research) is actually useful to see immediately,
+    // rather than making the user go find the tab themselves.
+    setActiveStage("autopilot");
   }
 
   /** The alternate entry point: no script, just existing production
@@ -421,7 +509,10 @@ export default function Home() {
       const project = applyRosterImport(base, result);
       setProjects((prev) => [...prev, project]);
       setActiveId(project.id);
-      setActiveStage("dates");
+      // Same reasoning as the script path: land on Autopilot so gaps in the
+      // imported roster (missing emails, location contacts) are flagged
+      // immediately instead of only surfacing later in Dates.
+      setActiveStage("autopilot");
       if (result.errors.length > 0 || usedFallback) {
         const prefix = usedFallback
           ? "That CSV didn't match the standard template, so it was read with the smarter extractor instead. "
@@ -435,11 +526,9 @@ export default function Home() {
     setLoading(false);
   }
 
-  async function handleFollowUp() {
-    if (!activeProject || !message.trim() || loading) return;
-    const text = message.trim();
-    setMessage("");
-    await submitToPipeline(activeProject, [{ text }]);
+  async function handleRequestReschedule(text: string) {
+    if (!activeProject || !text.trim() || loading) return;
+    await submitToPipeline(activeProject, [{ text: text.trim() }]);
   }
 
   async function handleViewSourceDocument() {
@@ -451,6 +540,16 @@ export default function Home() {
     setTimeout(() => URL.revokeObjectURL(url), 30_000);
   }
 
+  async function handleDownloadSourceDocument() {
+    if (!activeProject?.sourceDocument) return;
+    const url = await dataUrlToObjectUrl(activeProject.sourceDocument.dataUrl);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = activeProject.sourceDocument.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  }
+
   async function handleSetShootWindow(start: string, end: string) {
     if (!activeProject || loading) return;
     await submitToPipeline(activeProject, [
@@ -458,6 +557,46 @@ export default function Home() {
         text: `SHOOT_WINDOW: start=${start} end=${end} — please assign real calendar dates to the validated schedule within this window.`,
       },
     ]);
+  }
+
+  function handleSetProjectStatus(id: string, status: ProjectStatus) {
+    updateProject(id, { status });
+    if (status === "archived" && activeId === id) setActiveId(null);
+  }
+
+  function updateCompanyProfile(companyProfile: CompanyProfile) {
+    setSettings((prev) => ({ ...prev, companyProfile }));
+  }
+
+  function addTeamMember() {
+    setSettings((prev) => ({
+      ...prev,
+      team: [...prev.team, emptyTeamMember(crypto.randomUUID())],
+    }));
+  }
+
+  function updateTeamMember(id: string, patch: Partial<TeamMember>) {
+    setSettings((prev) => ({
+      ...prev,
+      team: prev.team.map((m) => (m.id === id ? { ...m, ...patch } : m)),
+    }));
+  }
+
+  function removeTeamMember(id: string) {
+    setSettings((prev) => ({ ...prev, team: prev.team.filter((m) => m.id !== id) }));
+  }
+
+  function handleClearAllData() {
+    if (
+      !window.confirm(
+        "Clear all local data? This permanently deletes every project and your settings from this browser. This can't be undone."
+      )
+    ) {
+      return;
+    }
+    setProjects([]);
+    setSettings(emptySettings());
+    setActiveId(null);
   }
 
   if (activeProject) {
@@ -482,6 +621,20 @@ export default function Home() {
                 className="tracked rounded-full border border-edge px-4 py-2 text-xs text-dim uppercase transition hover:text-ink"
               >
                 View original document
+              </button>
+            )}
+            {activeProject.status !== "archived" && (
+              <button
+                onClick={() => {
+                  if (
+                    window.confirm(`Archive "${projectTitle}"? You can move it back from the dashboard.`)
+                  ) {
+                    handleSetProjectStatus(activeProject.id, "archived");
+                  }
+                }}
+                className="tracked rounded-full border border-edge px-4 py-2 text-xs text-dim uppercase transition hover:text-ink"
+              >
+                Archive
               </button>
             )}
           </div>
@@ -514,26 +667,66 @@ export default function Home() {
             </p>
           )}
 
+          {activeStage === "autopilot" && (
+            <AutopilotSection
+              projectName={projectTitle}
+              sessionId={activeProject.sessionId}
+              breakdown={activeProject.breakdown}
+              schedule={activeProject.schedule}
+              callSheets={activeProject.callSheets}
+              crew={activeProject.crew ?? []}
+              castEmails={activeProject.castEmails ?? {}}
+              castPriority={activeProject.castPriority ?? {}}
+              availabilityLinks={activeProject.availabilityLinks ?? {}}
+              proposedPeriod={activeProject.proposedPeriod ?? null}
+              locationAvailability={activeProject.locationAvailability ?? {}}
+              locationResearch={activeProject.locationResearch ?? {}}
+              castOutreach={activeProject.castOutreach}
+              locationOutreach={activeProject.locationOutreach ?? {}}
+              onUpdateLocationOutreach={(locationOutreach) =>
+                updateProject(activeProject.id, { locationOutreach })
+              }
+              onUpdateCastEmails={(castEmails) => updateProject(activeProject.id, { castEmails })}
+              onUpdateLocationAvailability={(locationAvailability) =>
+                updateProject(activeProject.id, { locationAvailability })
+              }
+              onLinksGenerated={(links) =>
+                updateProject(activeProject.id, {
+                  availabilityLinks: { ...(activeProject.availabilityLinks ?? {}), ...links },
+                })
+              }
+              onGoToStage={setActiveStage}
+            />
+          )}
+
           {activeStage === "breakdown" &&
             (activeProject.breakdown ? (
-              <BreakdownSection breakdown={activeProject.breakdown} />
+              <BreakdownSection
+                breakdown={activeProject.breakdown}
+                sourceDocument={activeProject.sourceDocument}
+                onViewSourceDocument={handleViewSourceDocument}
+                onDownloadSourceDocument={handleDownloadSourceDocument}
+              />
             ) : (
               <p className="text-sm text-faint">No breakdown yet.</p>
             ))}
 
-          {activeStage === "scheduling" &&
-            (activeProject.schedule ? (
-              <ScheduleSection schedule={activeProject.schedule} />
-            ) : (
-              <p className="text-sm text-faint">No schedule yet.</p>
-            ))}
-
-          {activeStage === "validator" &&
-            (activeProject.schedule ? (
-              <ValidatorSection schedule={activeProject.schedule} />
-            ) : (
-              <p className="text-sm text-faint">No schedule to validate yet.</p>
-            ))}
+          {activeStage === "members" && (
+            <MembersSection
+              cast={activeProject.breakdown?.cast ?? []}
+              crew={activeProject.crew ?? []}
+              otherItems={activeProject.otherItems ?? []}
+              castEmails={activeProject.castEmails ?? {}}
+              onAddCastMember={addCastMember}
+              onUpdateCastRole={updateCastRole}
+              onRemoveCastMember={removeCastMember}
+              onUpdateCastEmails={(castEmails) => updateProject(activeProject.id, { castEmails })}
+              onAddCrewMember={addCrewMember}
+              onUpdateCrewMember={updateCrewMember}
+              onRemoveCrewMember={removeCrewMember}
+              onUpdateOtherItems={(otherItems) => updateProject(activeProject.id, { otherItems })}
+            />
+          )}
 
           {activeStage === "callSheet" &&
             (activeProject.callSheets && activeProject.callSheets.call_sheets.length > 0 ? (
@@ -542,19 +735,26 @@ export default function Home() {
                 projectName={projectTitle}
                 locationAvailability={activeProject.locationAvailability ?? {}}
                 productionInfo={activeProject.productionInfo ?? emptyProductionInfo()}
-                callSheetExtras={activeProject.callSheetExtras ?? {}}
                 onUpdateProductionInfo={(productionInfo) =>
                   updateProject(activeProject.id, { productionInfo })
-                }
-                onUpdateCallSheetExtras={(callSheetExtras) =>
-                  updateProject(activeProject.id, { callSheetExtras })
                 }
               />
             ) : (
               <p className="text-sm text-faint">No call sheet yet.</p>
             ))}
 
-          {activeStage === "availability" &&
+          {activeStage === "tasks" && (
+            <TaskMasterSection
+              tasks={activeProject.tasks ?? []}
+              cast={activeProject.breakdown?.cast ?? []}
+              crew={activeProject.crew ?? []}
+              locations={(activeProject.breakdown?.locations ?? []).map((l) => l.name)}
+              shootDayNumbers={activeProject.schedule?.shoot_days.map((d) => d.day_number) ?? []}
+              onUpdateTasks={(tasks) => updateProject(activeProject.id, { tasks })}
+            />
+          )}
+
+          {activeStage === "dashboard" &&
             (activeProject.breakdown && activeProject.schedule ? (
               <AvailabilitySection
                 sessionId={activeProject.sessionId}
@@ -605,7 +805,7 @@ export default function Home() {
                   updateProject(activeProject.id, { locationAvailability })
                 }
                 onUpdateOtherItems={(otherItems) => updateProject(activeProject.id, { otherItems })}
-                onRequestReschedule={(text) => setMessage(text)}
+                onRequestReschedule={handleRequestReschedule}
                 onLinksGenerated={(links) =>
                   updateProject(activeProject.id, {
                     availabilityLinks: { ...(activeProject.availabilityLinks ?? {}), ...links },
@@ -617,39 +817,6 @@ export default function Home() {
             ) : (
               <p className="text-sm text-faint">No validated schedule yet.</p>
             ))}
-
-          {activeStage === "status" &&
-            (activeProject.breakdown && activeProject.schedule ? (
-              <StatusSection
-                breakdown={activeProject.breakdown}
-                schedule={activeProject.schedule}
-                crew={activeProject.crew ?? []}
-                castEmails={activeProject.castEmails ?? {}}
-                castPriority={activeProject.castPriority ?? {}}
-                castAvailabilityNote={activeProject.castAvailabilityNote ?? {}}
-                availabilityLinks={activeProject.availabilityLinks ?? {}}
-                sessionId={activeProject.sessionId}
-              />
-            ) : (
-              <p className="text-sm text-faint">No validated schedule yet.</p>
-            ))}
-
-          <div className="mt-10 flex items-center gap-2 border-t border-edge pt-5">
-            <input
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleFollowUp()}
-              placeholder={`e.g. "We're shooting this in Austin, TX"`}
-              className="flex-1 rounded-full border border-edge bg-panel2 px-4 py-2.5 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none"
-            />
-            <button
-              onClick={handleFollowUp}
-              disabled={loading || !message.trim()}
-              className="btn-poster rounded-full px-5 py-2.5 text-sm font-semibold disabled:opacity-40"
-            >
-              Send
-            </button>
-          </div>
         </main>
 
         <ChatPanel
@@ -675,13 +842,38 @@ export default function Home() {
             VantageTime
           </span>
         </div>
-        <nav className="tracked flex items-center gap-8 text-xs text-dim uppercase">
-          <span>Productions</span>
+        <nav className="tracked flex items-center gap-8 text-xs uppercase">
+          <button
+            onClick={() => setDashboardView("projects")}
+            className={dashboardView === "projects" ? "text-ink" : "text-dim transition hover:text-ink"}
+          >
+            Productions
+          </button>
+          <button
+            onClick={() => setDashboardView("settings")}
+            className={dashboardView === "settings" ? "text-ink" : "text-dim transition hover:text-ink"}
+          >
+            Settings
+          </button>
         </nav>
       </header>
       <div className="filmstrip" />
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-8 py-12">
+        {dashboardView === "settings" ? (
+          <SettingsSection
+            companyProfile={settings.companyProfile}
+            team={settings.team}
+            activeProjectCount={liveProjects.length + inProgressProjects.length}
+            archivedProjectCount={archivedProjects.length}
+            onUpdateCompanyProfile={updateCompanyProfile}
+            onAddTeamMember={addTeamMember}
+            onUpdateTeamMember={updateTeamMember}
+            onRemoveTeamMember={removeTeamMember}
+            onClearAllData={handleClearAllData}
+          />
+        ) : (
+          <>
         <div className="tracked mb-4 text-xs text-dim uppercase">Your Projects</div>
 
         {error && (
@@ -690,18 +882,40 @@ export default function Home() {
           </p>
         )}
 
+        <div className="mb-6 flex flex-wrap gap-2">
+          {PROJECT_STATUS_ORDER.map((s) => (
+            <button
+              key={s}
+              onClick={() => setProjectTab(s)}
+              className={`tracked rounded-full border px-4 py-1.5 text-xs uppercase transition ${
+                projectTab === s ? PROJECT_STATUS_BADGE_STYLE[s] : "border-edge text-faint hover:text-dim"
+              }`}
+            >
+              {PROJECT_STATUS_LABELS[s]} ({projectsByStatus[s].length})
+            </button>
+          ))}
+        </div>
+
         <div className="flex flex-col gap-6">
-          {projects.map((p) => (
+          {projectsByStatus[projectTab].map((p) => (
             <ProjectCard
               key={p.id}
               project={p}
               onOpen={() => {
                 setActiveId(p.id);
-                setActiveStage(p.startedFrom === "roster" ? "dates" : "breakdown");
+                setActiveStage("autopilot");
               }}
+              onSetStatus={(status) => handleSetProjectStatus(p.id, status)}
             />
           ))}
 
+          {projectsByStatus[projectTab].length === 0 && (
+            <p className="rounded-2xl border border-dashed border-edge px-6 py-10 text-center text-sm text-faint">
+              No {PROJECT_STATUS_LABELS[projectTab].toLowerCase()} projects yet.
+            </p>
+          )}
+
+          {projectTab !== "archived" && (
           <div>
             <div className="tracked mb-3 text-xs text-dim uppercase">How would you like to start?</div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -764,7 +978,10 @@ export default function Home() {
               Download the CSV template
             </button>
           </div>
+          )}
         </div>
+          </>
+        )}
       </main>
     </div>
   );

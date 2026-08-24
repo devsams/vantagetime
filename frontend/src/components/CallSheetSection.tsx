@@ -3,67 +3,8 @@
 import { useState } from "react";
 import StageHeader from "./StageHeader";
 import NoteBullets from "./NoteBullets";
-import {
-  emptyCallSheetDayExtras,
-  formatPageCount,
-  newCallSheetCustomField,
-} from "@/lib/callSheetExtras";
-import {
-  CallSheetCustomField,
-  CallSheetDayExtras,
-  CallSheets,
-  LocationAvailability,
-  ProductionInfo,
-} from "@/lib/types";
-
-type FixedDayExtraKey = Exclude<keyof CallSheetDayExtras, "customFields">;
-
-const DAY_EXTRA_FIELDS: {
-  key: FixedDayExtraKey;
-  label: string;
-  placeholder: string;
-}[] = [
-  {
-    key: "advanceSchedule",
-    label: "Advance Call / Next-Day Schedule",
-    placeholder: "Tomorrow's preview: scenes, sets, and cast needed — for overnight prep.",
-  },
-  {
-    key: "specialEquipment",
-    label: "Special Equipment & Department Notes",
-    placeholder: "e.g. Steadicam required. SFX explosion scene 4. Rain machine on set.",
-  },
-  {
-    key: "parkingShuttle",
-    label: "Parking & Shuttles",
-    placeholder: "On/off-site parking instructions and shuttle run times.",
-  },
-  {
-    key: "companyMove",
-    label: "Company Move Schedule",
-    placeholder: "Timeline and directions if moving between locations mid-day.",
-  },
-  {
-    key: "backgroundExtras",
-    label: "Background / Extras",
-    placeholder: "Headcount, arrival time, holding area, wardrobe requirements.",
-  },
-  {
-    key: "castTransport",
-    label: "Cast Pick-Up & Transport",
-    placeholder: "Driver schedule — who's picked up, from where, at what time.",
-  },
-  {
-    key: "standInsStunts",
-    label: "Stand-Ins & Stunt Doubles",
-    placeholder: "Arrival times, wardrobe, and assignment notes.",
-  },
-  {
-    key: "minorRules",
-    label: "Minor / Child Actor Rules",
-    placeholder: "Child-labor compliance, tutor hours, legal max working hours.",
-  },
-];
+import { formatPageCount } from "@/lib/callSheetExtras";
+import { CallSheets, LocationAvailability, ProductionInfo } from "@/lib/types";
 
 const PRODUCTION_FIELDS: { key: keyof ProductionInfo; label: string }[] = [
   { key: "companyName", label: "Producing Company (legal entity)" },
@@ -100,17 +41,13 @@ export default function CallSheetSection({
   projectName,
   locationAvailability,
   productionInfo,
-  callSheetExtras,
   onUpdateProductionInfo,
-  onUpdateCallSheetExtras,
 }: {
   callSheets: CallSheets;
   projectName: string;
   locationAvailability: Record<string, LocationAvailability>;
   productionInfo: ProductionInfo;
-  callSheetExtras: Record<number, CallSheetDayExtras>;
   onUpdateProductionInfo: (info: ProductionInfo) => void;
-  onUpdateCallSheetExtras: (extras: Record<number, CallSheetDayExtras>) => void;
 }) {
   const days = callSheets.call_sheets;
   const [activeDay, setActiveDay] = useState(days[0]?.day_number ?? 1);
@@ -123,34 +60,9 @@ export default function CallSheetSection({
   const locationContact = [locationInfo?.contactName, locationInfo?.contactPhone, locationInfo?.contactEmail]
     .filter(Boolean)
     .join(" · ");
-  const extras = day ? callSheetExtras[day.day_number] ?? emptyCallSheetDayExtras() : emptyCallSheetDayExtras();
 
   function patchProductionInfo(patch: Partial<ProductionInfo>) {
     onUpdateProductionInfo({ ...productionInfo, ...patch });
-  }
-
-  function patchDayExtras(dayNumber: number, patch: Partial<CallSheetDayExtras>) {
-    const current = callSheetExtras[dayNumber] ?? emptyCallSheetDayExtras();
-    onUpdateCallSheetExtras({ ...callSheetExtras, [dayNumber]: { ...current, ...patch } });
-  }
-
-  function addCustomField(dayNumber: number) {
-    const current = callSheetExtras[dayNumber] ?? emptyCallSheetDayExtras();
-    patchDayExtras(dayNumber, { customFields: [...current.customFields, newCallSheetCustomField()] });
-  }
-
-  function patchCustomField(dayNumber: number, fieldId: string, patch: Partial<CallSheetCustomField>) {
-    const current = callSheetExtras[dayNumber] ?? emptyCallSheetDayExtras();
-    patchDayExtras(dayNumber, {
-      customFields: current.customFields.map((f) => (f.id === fieldId ? { ...f, ...patch } : f)),
-    });
-  }
-
-  function removeCustomField(dayNumber: number, fieldId: string) {
-    const current = callSheetExtras[dayNumber] ?? emptyCallSheetDayExtras();
-    patchDayExtras(dayNumber, {
-      customFields: current.customFields.filter((f) => f.id !== fieldId),
-    });
   }
 
   return (
@@ -158,7 +70,7 @@ export default function CallSheetSection({
       <StageHeader
         index={5}
         title="Call Sheet Generator"
-        description="Structured formatting from the validated schedule, plus a note only on the days that actually need one."
+        description="Structured formatting straight from the validated schedule. Day-specific to-dos — equipment, transport, parking, and the like — now live in Task Master, assigned to a real person."
       />
 
       <div className="mb-6 rounded-xl border border-edge bg-panel p-4">
@@ -408,71 +320,6 @@ export default function CallSheetSection({
                 </span>
               ))}
             </div>
-          </div>
-
-          <div className="mt-6 border-t border-black/15 pt-4">
-            <div className="tracked mb-2 text-[10px] uppercase text-black/50">
-              Additional day notes — filmmaker-entered
-            </div>
-            <div className="space-y-2">
-              {DAY_EXTRA_FIELDS.map((f) => (
-                <div
-                  key={f.key}
-                  className="grid grid-cols-1 gap-2 border-b border-black/10 pb-2 sm:grid-cols-[200px_1fr] sm:items-start"
-                >
-                  <div className="pt-1.5 text-xs font-medium text-black/70">{f.label}</div>
-                  <textarea
-                    value={extras[f.key]}
-                    onChange={(e) => patchDayExtras(day.day_number, { [f.key]: e.target.value })}
-                    placeholder={f.placeholder}
-                    rows={2}
-                    className="rounded-md border border-black/15 bg-white/60 px-2 py-1 text-[11px] text-black/80 placeholder:text-black/30 focus:border-black/40 focus:outline-none"
-                  />
-                </div>
-              ))}
-
-              {extras.customFields.map((field) => (
-                <div
-                  key={field.id}
-                  className="grid grid-cols-1 gap-2 border-b border-black/10 pb-2 sm:grid-cols-[200px_1fr] sm:items-start"
-                >
-                  <div className="flex items-start gap-1">
-                    <input
-                      type="text"
-                      value={field.question}
-                      onChange={(e) =>
-                        patchCustomField(day.day_number, field.id, { question: e.target.value })
-                      }
-                      placeholder="Question / label"
-                      className="w-full rounded-md border border-black/15 bg-white/60 px-2 py-1.5 text-xs font-medium text-black/70 placeholder:text-black/30 focus:border-black/40 focus:outline-none"
-                    />
-                    <button
-                      onClick={() => removeCustomField(day.day_number, field.id)}
-                      title="Remove field"
-                      className="mt-0.5 shrink-0 px-1 text-sm text-black/30 hover:text-black/60"
-                    >
-                      ×
-                    </button>
-                  </div>
-                  <textarea
-                    value={field.answer}
-                    onChange={(e) =>
-                      patchCustomField(day.day_number, field.id, { answer: e.target.value })
-                    }
-                    placeholder="Answer / notes"
-                    rows={2}
-                    className="rounded-md border border-black/15 bg-white/60 px-2 py-1 text-[11px] text-black/80 placeholder:text-black/30 focus:border-black/40 focus:outline-none"
-                  />
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={() => addCustomField(day.day_number)}
-              className="tracked mt-3 rounded-full border border-black/20 px-3 py-1 text-[10px] uppercase text-black/60 transition hover:border-black/40 hover:text-black/80"
-            >
-              + Add field
-            </button>
           </div>
 
           {day.validator_notes.length > 0 && (

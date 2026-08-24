@@ -37,6 +37,80 @@ function blockLabel(block: string[]): string {
   return `${friendlyDate(block[0])} – ${friendlyDate(block[block.length - 1])}, ${year}`;
 }
 
+// --- Response status (folded in from the old standalone "Status" tab) ---
+
+type StatusKey = "unavailable" | "pending" | "awaiting_dates" | "locked_in" | "no_days";
+
+const STATUS_LABEL: Record<StatusKey, string> = {
+  unavailable: "Unavailable",
+  pending: "Pending",
+  awaiting_dates: "Awaiting dates",
+  locked_in: "Locked in",
+  no_days: "Not scheduled",
+};
+
+const STATUS_STYLE: Record<StatusKey, string> = {
+  unavailable: "border-red-500/50 bg-red-500/10 text-red-700",
+  pending: "border-edge bg-panel2 text-dim",
+  awaiting_dates: "border-amber/50 bg-amber/10 text-amber",
+  locked_in: "border-accent/50 bg-accent/15 text-accent",
+  no_days: "border-edge bg-panel2 text-faint",
+};
+
+interface StatusRow {
+  key: string;
+  name: string;
+  type: "Cast" | "Crew";
+  priority: boolean;
+  status: StatusKey;
+  detail: string;
+}
+
+/** Real cross-referencing against cancellations/proposals/confirmations
+ * already gathered from the actor-facing pages — never a guess about
+ * who's ready. A person is only "locked in" once every day they're
+ * needed on is both dated AND explicitly confirmed. */
+function computeStatus(
+  name: string,
+  daysOn: { day_number: number; date: string }[],
+  cancellations: Cancellation[],
+  confirmations: Confirmation[],
+  proposals: DateProposal[]
+): { status: StatusKey; detail: string } {
+  if (daysOn.length === 0) return { status: "no_days", detail: "Not scheduled on any day" };
+
+  const cancelledDays = daysOn.filter((d) =>
+    cancellations.some((c) => c.actor_name === name && c.day_number === d.day_number)
+  );
+  if (cancelledDays.length > 0) {
+    return {
+      status: "unavailable",
+      detail: `Flagged unavailable: Day ${cancelledDays.map((d) => d.day_number).join(", ")}`,
+    };
+  }
+
+  const datedDays = daysOn.filter((d) => d.date);
+  const undatedDays = daysOn.filter((d) => !d.date);
+
+  const unconfirmedDated = datedDays.filter(
+    (d) => !confirmations.some((c) => c.actor_name === name && c.day_number === d.day_number)
+  );
+  const unrespondedUndated = undatedDays.filter(
+    (d) => !proposals.some((p) => p.actor_name === name && p.day_number === d.day_number)
+  );
+
+  if (unconfirmedDated.length > 0 || unrespondedUndated.length > 0) {
+    const waiting = unconfirmedDated.length + unrespondedUndated.length;
+    return { status: "pending", detail: `No response yet on ${waiting} of ${daysOn.length} day(s)` };
+  }
+
+  if (undatedDays.length > 0) {
+    return { status: "awaiting_dates", detail: "Submitted availability — waiting on final dates" };
+  }
+
+  return { status: "locked_in", detail: "Confirmed on every scheduled day" };
+}
+
 interface DayCoverage {
   day_number: number;
   date: string;
@@ -244,6 +318,57 @@ export default function AvailabilitySection({
     return a.name.localeCompare(b.name);
   });
 
+  // --- Response status: one row per cast/crew member, for quick triage
+  // of who hasn't responded (folded in from the old Status tab). ---
+  const statusRows: StatusRow[] = [];
+  for (const member of breakdown.cast) {
+    const daysOn = schedule.shoot_days.filter((d) => castNamesForDay(d, breakdown).includes(member.name));
+    const { status, detail } = computeStatus(member.name, daysOn, cancellations, confirmations, proposals);
+    statusRows.push({
+      key: `cast-${member.name}`,
+      name: member.name,
+      type: "Cast",
+      priority: !!castPriority[member.name],
+      status,
+      detail,
+    });
+  }
+  for (const member of crew) {
+    const { status, detail } = computeStatus(
+      member.name,
+      schedule.shoot_days,
+      cancellations,
+      confirmations,
+      proposals
+    );
+    statusRows.push({
+      key: `crew-${member.id}`,
+      name: member.name,
+      type: "Crew",
+      priority: member.priority,
+      status,
+      detail,
+    });
+  }
+  const STATUS_RANK: Record<StatusKey, number> = {
+    unavailable: 0,
+    pending: 1,
+    awaiting_dates: 2,
+    no_days: 3,
+    locked_in: 4,
+  };
+  statusRows.sort((a, b) => {
+    if (a.priority !== b.priority) return a.priority ? -1 : 1;
+    if (STATUS_RANK[a.status] !== STATUS_RANK[b.status]) return STATUS_RANK[a.status] - STATUS_RANK[b.status];
+    return a.name.localeCompare(b.name);
+  });
+  const trackableStatus = statusRows.filter((r) => r.status !== "no_days");
+  const lockedCount = trackableStatus.filter((r) => r.status === "locked_in").length;
+  const unavailableStatusCount = trackableStatus.filter((r) => r.status === "unavailable").length;
+  const pendingCount = trackableStatus.filter((r) => r.status === "pending").length;
+  const awaitingCount = trackableStatus.filter((r) => r.status === "awaiting_dates").length;
+  const allLocked = trackableStatus.length > 0 && lockedCount === trackableStatus.length;
+
   // --- Per-day real coverage (real names, not just counts) ---
   const coverage: DayCoverage[] = schedule.shoot_days
     .map((day) => {
@@ -291,9 +416,9 @@ export default function AvailabilitySection({
   return (
     <div id="availability-print-area">
       <StageHeader
-        index={6}
-        title="Availability"
-        description="The final production report — real confirmed dates and names, day by day and person by person. For quick triage of who hasn't responded, see the Status tab; to send or resend outreach, use the Dates tab's Roster sub-tab."
+        index={7}
+        title="Dashboard"
+        description="The production home screen — who's responded and who's still pending, then the final report: real confirmed dates and names, day by day and person by person. To send or resend outreach, use the Dates tab's Roster sub-tab."
         action={
           <div className="no-print flex items-center gap-2">
             <button
@@ -354,6 +479,55 @@ export default function AvailabilitySection({
           </div>
           <div className="tracked mt-1 text-[10px] text-faint uppercase">No Email On File</div>
         </div>
+      </div>
+
+      {/* --- Response status: quick triage of who hasn't responded --- */}
+      <div className="mb-6">
+        <div className="tracked mb-3 text-[10px] text-faint uppercase">Response Status</div>
+        <div
+          className={`mb-3 rounded-xl border p-4 text-sm ${
+            allLocked
+              ? "border-accent/50 bg-accent/10 text-accent"
+              : "border-amber/50 bg-amber/10 text-amber"
+          }`}
+        >
+          {allLocked
+            ? `✓ Everything is locked in — ${lockedCount} of ${trackableStatus.length} people confirmed on every scheduled day.`
+            : `Not locked in yet — ${lockedCount} locked in, ${pendingCount} pending, ${awaitingCount} awaiting final dates, ${unavailableStatusCount} unavailable (of ${trackableStatus.length}).`}
+        </div>
+        {statusRows.length > 0 && (
+          <div className="overflow-x-auto rounded-xl border border-edge bg-panel">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-edge text-[10px] uppercase tracked text-faint">
+                  <th className="px-4 py-3 font-normal">Name</th>
+                  <th className="px-4 py-3 font-normal">Type</th>
+                  <th className="px-4 py-3 font-normal">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {statusRows.map((r) => (
+                  <tr key={r.key} className="border-b border-edge/60 last:border-0">
+                    <td className="px-4 py-3 text-ink">
+                      {r.name}
+                      {r.priority && <span className="text-accent"> ★</span>}
+                    </td>
+                    <td className="px-4 py-3 text-dim">{r.type}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`tracked inline-block rounded-full border px-2 py-0.5 text-[10px] uppercase ${STATUS_STYLE[r.status]}`}
+                        title={r.detail}
+                      >
+                        {STATUS_LABEL[r.status]}
+                      </span>
+                      <div className="mt-1 text-[10px] text-faint">{r.detail}</div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="mb-6 rounded-xl border border-edge bg-panel p-4">

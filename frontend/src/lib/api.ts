@@ -305,6 +305,26 @@ export async function fetchActorView(token: string): Promise<ActorView | null> {
   return res.json();
 }
 
+/** Sends the (already-drafted, filmmaker-reviewed) location-owner
+ * outreach email — see lib/locationOutreach.ts for the draft and
+ * common/location_outreach_routes.py for the send. Best-effort: check
+ * `.sent` rather than relying on a thrown exception. */
+export async function notifyLocationOwner(
+  sessionId: string,
+  location: string,
+  to: string,
+  subject: string,
+  body: string
+): Promise<{ sent: boolean; reason: string | null }> {
+  const res = await fetch(`${API_BASE}/locations/notify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: sessionId, location, to, subject, body }),
+  });
+  if (!res.ok) return { sent: false, reason: `Backend returned ${res.status}` };
+  return res.json();
+}
+
 /** The filmmaker's candidate shoot window — real dates the highest-
  * priority cast/crew/other person will pick from once outreach goes
  * out. Returns null if none has been set for this session yet. */

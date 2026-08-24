@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import StageHeader from "./StageHeader";
 import PlanningSection from "./PlanningSection";
+import ScheduleSection from "./ScheduleSection";
+import ValidatorSection from "./ValidatorSection";
 import { buildGoogleCalendarUrl, castNamesForDay } from "@/lib/calendar";
 import {
   fetchConfirmations,
@@ -24,9 +26,10 @@ import {
   Schedule,
 } from "@/lib/types";
 
-type SubTab = "window" | "locations" | "roster";
+type SubTab = "window" | "scheduling" | "locations" | "roster";
 const SUB_TABS: { key: SubTab; label: string }[] = [
   { key: "window", label: "Shoot Window" },
+  { key: "scheduling", label: "Scheduling" },
   { key: "locations", label: "Location Research" },
   { key: "roster", label: "Roster & Availability" },
 ];
@@ -112,6 +115,7 @@ export default function DatesSection({
   onUpdateSchedule: (schedule: Schedule) => void;
 }) {
   const [subTab, setSubTab] = useState<SubTab>("window");
+  const [showValidatorDetails, setShowValidatorDetails] = useState(false);
 
   // --- Cast outreach (agent-drafted subject/body per cast member) ---
   const [sendingCastLinks, setSendingCastLinks] = useState(false);
@@ -273,12 +277,14 @@ export default function DatesSection({
     ? candidateBlockConflicts(dateWindow.locked_block, locationAvailability, usedLocations)
     : [];
 
+  const scheduleIssue = !!schedule && !schedule.valid;
+
   return (
     <div>
       <StageHeader
         index={4}
         title="Dates"
-        description="Top to bottom: set the real shoot window here, check it against location research, send cast/crew/other outreach, resolve whatever gets flagged, then get a real calendar once everyone's locked in."
+        description="Top to bottom: set the real shoot window, see the day-by-day schedule it produces, check it against location research, send cast/crew/other outreach, then resolve whatever gets flagged."
       />
 
       <div className="mb-6 flex gap-2">
@@ -286,13 +292,16 @@ export default function DatesSection({
           <button
             key={t.key}
             onClick={() => setSubTab(t.key)}
-            className={`tracked rounded-full border px-4 py-1.5 text-xs uppercase transition ${
+            className={`tracked flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs uppercase transition ${
               subTab === t.key
                 ? "border-accent/50 bg-accent/15 text-accent"
                 : "border-edge text-faint hover:text-dim"
             }`}
           >
             {t.label}
+            {t.key === "scheduling" && scheduleIssue && (
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500" title="Schedule has blocking issues" />
+            )}
           </button>
         ))}
       </div>
@@ -501,6 +510,40 @@ export default function DatesSection({
               })}
             </div>
           )}
+        </>
+      )}
+
+      {subTab === "scheduling" && (
+        <>
+          <div
+            className={`mb-6 flex items-center justify-between rounded-xl border p-4 text-sm ${
+              scheduleIssue
+                ? "border-red-500/40 bg-red-500/10 text-red-700"
+                : "border-accent/40 bg-accent/5 text-accent"
+            }`}
+          >
+            <span>
+              {scheduleIssue
+                ? "This schedule has blocking issues — see details for what needs fixing."
+                : schedule?.first_attempt
+                  ? "✓ Validated — the first proposal needed one correction, now resolved."
+                  : "✓ Validated — passed on the first try, no correction needed."}
+            </span>
+            <button
+              onClick={() => setShowValidatorDetails((v) => !v)}
+              className="tracked shrink-0 rounded-full border border-current/30 px-3 py-1 text-[10px] uppercase transition hover:brightness-125"
+            >
+              {showValidatorDetails ? "Hide details" : "Show details"}
+            </button>
+          </div>
+
+          {showValidatorDetails && (
+            <div className="mb-6">
+              <ValidatorSection schedule={schedule} />
+            </div>
+          )}
+
+          <ScheduleSection schedule={schedule} />
         </>
       )}
 

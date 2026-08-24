@@ -28,6 +28,7 @@ from google.adk.cli.fast_api import get_fast_api_app
 
 from common.availability_routes import router as availability_router
 from common.chat_routes import router as chat_router
+from common.location_outreach_routes import router as location_outreach_router
 from common.roster_import import router as roster_router
 
 logger = logging.getLogger("vantagetime.server")
@@ -63,6 +64,10 @@ app.include_router(roster_router)
 # /assistant, not /chat (see chat_routes.py for why) — see
 # common/chat_routes.py.
 app.include_router(chat_router)
+
+# Plain REST route for emailing a location owner/contact from the
+# Autopilot flow — see common/location_outreach_routes.py.
+app.include_router(location_outreach_router)
 
 
 # Without this, an unhandled exception mid-request drops the connection
