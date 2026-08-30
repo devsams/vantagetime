@@ -1,0 +1,194 @@
+<svg viewBox="0 0 1300 980" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5c5847"/>
+    </marker>
+    <marker id="arrowAccent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#d9640a"/>
+    </marker>
+    <marker id="arrowCoral" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#d9483a"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1300" height="980" fill="#f7f1e2"/>
+
+  <!-- Title -->
+  <text x="40" y="42" font-size="24" font-weight="800" fill="#17130d">VantageTime — System Architecture</text>
+  <text x="40" y="64" font-size="13" fill="#5c5847">Frontend ↔ FastAPI backend ↔ Google ADK agent pipeline ↔ Gemini 3.5 Flash, plus persistence and external services</text>
+
+  <!-- ================= CLIENT LAYER ================= -->
+  <text x="40" y="102" font-size="11" font-weight="800" letter-spacing="1.5" fill="#948f78">CLIENT</text>
+  <rect x="40" y="112" width="1220" height="110" rx="12" fill="#eef6fb" stroke="#1c7fb8" stroke-width="1.5"/>
+  <rect x="64" y="134" width="330" height="66" rx="8" fill="#ffffff" stroke="#1c7fb8" stroke-width="1.2"/>
+  <text x="229" y="158" font-size="13.5" font-weight="800" fill="#12435c" text-anchor="middle">Browser — Next.js 16 / React 19</text>
+  <text x="229" y="176" font-size="11" fill="#5c5847" text-anchor="middle">Autopilot · Breakdown · Dates · Call Sheet</text>
+  <text x="229" y="191" font-size="11" fill="#5c5847" text-anchor="middle">Task Master · Time Cards · Dashboard</text>
+
+  <rect x="424" y="134" width="230" height="66" rx="8" fill="#ffffff" stroke="#1c7fb8" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <text x="539" y="160" font-size="13" font-weight="800" fill="#12435c" text-anchor="middle">localStorage</text>
+  <text x="539" y="178" font-size="10.5" fill="#5c5847" text-anchor="middle">Fast/offline copy of the</text>
+  <text x="539" y="192" font-size="10.5" fill="#5c5847" text-anchor="middle">single Project object</text>
+
+  <rect x="684" y="134" width="220" height="66" rx="8" fill="#ffffff" stroke="#1c7fb8" stroke-width="1.2"/>
+  <text x="794" y="158" font-size="12.5" font-weight="800" fill="#12435c" text-anchor="middle">ChatPanel / ChatWidget</text>
+  <text x="794" y="176" font-size="10.5" fill="#5c5847" text-anchor="middle">Floating assistant, dispatches</text>
+  <text x="794" y="190" font-size="10.5" fill="#5c5847" text-anchor="middle">actions via applyChatAction()</text>
+
+  <rect x="934" y="134" width="290" height="66" rx="8" fill="#ffffff" stroke="#1c7fb8" stroke-width="1.2"/>
+  <text x="1079" y="158" font-size="12.5" font-weight="800" fill="#12435c" text-anchor="middle">Magic-link pages</text>
+  <text x="1079" y="176" font-size="10.5" fill="#5c5847" text-anchor="middle">/availability/[token] — actor / crew /</text>
+  <text x="1079" y="190" font-size="10.5" fill="#5c5847" text-anchor="middle">location-owner confirm &amp; date pages</text>
+
+  <!-- arrow client -> backend -->
+  <line x1="650" y1="222" x2="650" y2="264" stroke="#5c5847" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="662" y="248" font-size="11" fill="#5c5847">HTTPS · REST / JSON</text>
+  <line x1="590" y1="264" x2="590" y2="222" stroke="#5c5847" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ================= BACKEND LAYER ================= -->
+  <text x="40" y="282" font-size="11" font-weight="800" letter-spacing="1.5" fill="#948f78">BACKEND — FastAPI (Python)</text>
+  <rect x="40" y="292" width="1220" height="340" rx="12" fill="#fff2e2" stroke="#d9640a" stroke-width="1.5"/>
+
+  <!-- Agent pipeline subgroup -->
+  <rect x="64" y="316" width="770" height="200" rx="10" fill="#ffffff" stroke="#d9640a" stroke-width="1.2"/>
+  <text x="80" y="336" font-size="12.5" font-weight="800" fill="#7a3c06">Google ADK — production_pipeline (SequentialAgent)</text>
+
+  <rect x="80" y="348" width="128" height="60" rx="7" fill="#fff8ef" stroke="#d9640a" stroke-width="1"/>
+  <text x="144" y="368" font-size="10.5" font-weight="700" fill="#17130d" text-anchor="middle">Script Breakdown</text>
+  <text x="144" y="381" font-size="9.5" fill="#5c5847" text-anchor="middle">Agent</text>
+  <text x="144" y="397" font-size="9" fill="#948f78" text-anchor="middle">scenes/cast/props</text>
+
+  <line x1="208" y1="378" x2="228" y2="378" stroke="#d9640a" stroke-width="2" marker-end="url(#arrowAccent)"/>
+
+  <rect x="228" y="348" width="150" height="60" rx="7" fill="#eef6fb" stroke="#1c7fb8" stroke-width="1"/>
+  <text x="303" y="365" font-size="10.5" font-weight="700" fill="#17130d" text-anchor="middle">Location Research</text>
+  <text x="303" y="378" font-size="9.5" fill="#12435c" text-anchor="middle">ParallelAgent × 5 slots</text>
+  <text x="303" y="393" font-size="9" fill="#948f78" text-anchor="middle">one per location</text>
+
+  <line x1="378" y1="378" x2="398" y2="378" stroke="#d9640a" stroke-width="2" marker-end="url(#arrowAccent)"/>
+
+  <rect x="398" y="348" width="128" height="60" rx="7" fill="#fff8ef" stroke="#d9640a" stroke-width="1"/>
+  <text x="462" y="368" font-size="10.5" font-weight="700" fill="#17130d" text-anchor="middle">Scheduling</text>
+  <text x="462" y="381" font-size="9.5" fill="#5c5847" text-anchor="middle">Agent + tools</text>
+  <text x="462" y="397" font-size="9" fill="#948f78" text-anchor="middle">validate/assign/weather</text>
+
+  <line x1="526" y1="378" x2="546" y2="378" stroke="#d9640a" stroke-width="2" marker-end="url(#arrowAccent)"/>
+
+  <rect x="546" y="348" width="128" height="60" rx="7" fill="#fff8ef" stroke="#d9640a" stroke-width="1"/>
+  <text x="610" y="368" font-size="10.5" font-weight="700" fill="#17130d" text-anchor="middle">Call Sheet</text>
+  <text x="610" y="381" font-size="9.5" fill="#5c5847" text-anchor="middle">Generator</text>
+  <text x="610" y="397" font-size="9" fill="#948f78" text-anchor="middle">per shoot day</text>
+
+  <line x1="674" y1="378" x2="694" y2="378" stroke="#d9640a" stroke-width="2" marker-end="url(#arrowAccent)"/>
+  <rect x="694" y="348" width="122" height="60" rx="7" fill="#fff8ef" stroke="#d9640a" stroke-width="1" opacity="0"/>
+
+  <!-- second row: availability agent + deterministic tools -->
+  <rect x="80" y="422" width="170" height="70" rx="7" fill="#fff8ef" stroke="#d9640a" stroke-width="1"/>
+  <text x="165" y="443" font-size="10.5" font-weight="700" fill="#17130d" text-anchor="middle">Availability Agent</text>
+  <text x="165" y="458" font-size="9.5" fill="#5c5847" text-anchor="middle">drafts outreach messages</text>
+  <text x="165" y="472" font-size="9" fill="#948f78" text-anchor="middle">output_key: cast_outreach</text>
+
+  <rect x="270" y="422" width="220" height="70" rx="7" fill="#eaf6f2" stroke="#0e8f72" stroke-width="1.2"/>
+  <text x="380" y="440" font-size="10.5" font-weight="800" fill="#0e5b41" text-anchor="middle">Deterministic Tools (Python)</text>
+  <text x="380" y="456" font-size="9.5" fill="#0e5b41" text-anchor="middle">validate_schedule · assign_calendar_dates</text>
+  <text x="380" y="470" font-size="9.5" fill="#0e5b41" text-anchor="middle">get_weather · estimate_cast_hours</text>
+  <text x="380" y="484" font-size="8.5" fill="#5c5847" text-anchor="middle">real code, never LLM-estimated</text>
+
+  <rect x="510" y="422" width="180" height="70" rx="7" fill="#eaf6f2" stroke="#0e8f72" stroke-width="1.2"/>
+  <text x="600" y="443" font-size="10.5" font-weight="800" fill="#0e5b41" text-anchor="middle">roster_extraction_agent</text>
+  <text x="600" y="459" font-size="9.5" fill="#5c5847" text-anchor="middle">separate ADK app —</text>
+  <text x="600" y="473" font-size="9.5" fill="#5c5847" text-anchor="middle">PDF/DOCX roster import only</text>
+
+  <text x="80" y="508" font-size="9" fill="#948f78">Each stage writes to shared ADK session state via output_key — the next stage reads only from state, never re-reads the script.</text>
+
+  <!-- Deterministic routers subgroup -->
+  <rect x="850" y="316" width="390" height="200" rx="10" fill="#ffffff" stroke="#d9640a" stroke-width="1.2"/>
+  <text x="866" y="336" font-size="12.5" font-weight="800" fill="#7a3c06">Plain FastAPI Routers (not ADK)</text>
+
+  <rect x="866" y="348" width="175" height="42" rx="6" fill="#fbf1de" stroke="#a86a00" stroke-width="1"/>
+  <text x="953" y="366" font-size="10" font-weight="700" fill="#4d3400" text-anchor="middle">availability_routes.py</text>
+  <text x="953" y="380" font-size="8.5" fill="#5c5847" text-anchor="middle">magic links, confirm/reject</text>
+
+  <rect x="1050" y="348" width="175" height="42" rx="6" fill="#fbf1de" stroke="#a86a00" stroke-width="1"/>
+  <text x="1137" y="366" font-size="10" font-weight="700" fill="#4d3400" text-anchor="middle">chat_routes.py</text>
+  <text x="1137" y="380" font-size="8.5" fill="#5c5847" text-anchor="middle">/assistant — 1 Gemini call/msg</text>
+
+  <rect x="866" y="398" width="175" height="42" rx="6" fill="#fbf1de" stroke="#a86a00" stroke-width="1"/>
+  <text x="953" y="416" font-size="10" font-weight="700" fill="#4d3400" text-anchor="middle">roster_import.py</text>
+  <text x="953" y="430" font-size="8.5" fill="#5c5847" text-anchor="middle">CSV roster import</text>
+
+  <rect x="1050" y="398" width="175" height="42" rx="6" fill="#fbf1de" stroke="#a86a00" stroke-width="1"/>
+  <text x="1137" y="416" font-size="10" font-weight="700" fill="#4d3400" text-anchor="middle">projects_routes.py</text>
+  <text x="1137" y="430" font-size="8.5" fill="#5c5847" text-anchor="middle">project persistence API</text>
+
+  <rect x="866" y="448" width="359" height="42" rx="6" fill="#fbf1de" stroke="#a86a00" stroke-width="1"/>
+  <text x="1045" y="466" font-size="10" font-weight="700" fill="#4d3400" text-anchor="middle">mailer.py</text>
+  <text x="1045" y="480" font-size="8.5" fill="#5c5847" text-anchor="middle">SMTP send — outreach to cast / crew / location owners</text>
+
+  <text x="866" y="506" font-size="9" fill="#948f78">An actor clicking a link 3 days later has nothing to do with the filmmaker's chat session — deliberately kept outside the ADK pipeline.</text>
+
+  <!-- arrows: agent stages -> Gemini (right side) -->
+  <line x1="840" y1="378" x2="900" y2="378" stroke="#d9483a" stroke-width="2.5" marker-end="url(#arrowCoral)"/>
+
+  <!-- arrows: location research -> Parallel API -->
+  <line x1="303" y1="316" x2="303" y2="270" stroke="#1c7fb8" stroke-width="0" opacity="0"/>
+
+  <!-- Bottom connectors: backend -> external row -->
+  <line x1="900" y1="632" x2="900" y2="674" stroke="#5c5847" stroke-width="0" opacity="0"/>
+
+  <!-- ================= EXTERNAL SERVICES LAYER ================= -->
+  <text x="40" y="662" font-size="11" font-weight="800" letter-spacing="1.5" fill="#948f78">EXTERNAL SERVICES</text>
+  <rect x="40" y="672" width="1220" height="120" rx="12" fill="#fbecea" stroke="#d9483a" stroke-width="1.5"/>
+
+  <rect x="64" y="696" width="260" height="72" rx="8" fill="#ffffff" stroke="#d9483a" stroke-width="1.5"/>
+  <text x="194" y="720" font-size="13.5" font-weight="800" fill="#7a1f16" text-anchor="middle">Gemini 3.5 Flash</text>
+  <text x="194" y="738" font-size="10" fill="#5c5847" text-anchor="middle">Every pipeline agent + the chat</text>
+  <text x="194" y="752" font-size="10" fill="#5c5847" text-anchor="middle">endpoint — model_config.py</text>
+
+  <rect x="348" y="696" width="260" height="72" rx="8" fill="#ffffff" stroke="#1c7fb8" stroke-width="1.5"/>
+  <text x="478" y="720" font-size="13" font-weight="800" fill="#12435c" text-anchor="middle">Parallel Web Search API</text>
+  <text x="478" y="738" font-size="10" fill="#5c5847" text-anchor="middle">search_location() — real permit /</text>
+  <text x="478" y="752" font-size="10" fill="#5c5847" text-anchor="middle">weather-norm / logistics search</text>
+
+  <rect x="632" y="696" width="260" height="72" rx="8" fill="#ffffff" stroke="#1c7fb8" stroke-width="1.5"/>
+  <text x="762" y="720" font-size="13" font-weight="800" fill="#12435c" text-anchor="middle">Open-Meteo</text>
+  <text x="762" y="738" font-size="10" fill="#5c5847" text-anchor="middle">get_weather() — live forecast or real</text>
+  <text x="762" y="752" font-size="10" fill="#5c5847" text-anchor="middle">multi-year historical average, free/no-key</text>
+
+  <rect x="916" y="696" width="320" height="72" rx="8" fill="#ffffff" stroke="#1c7fb8" stroke-width="1.5"/>
+  <text x="1076" y="720" font-size="13" font-weight="800" fill="#12435c" text-anchor="middle">Mailpit (dev) / SMTP (prod)</text>
+  <text x="1076" y="738" font-size="10" fill="#5c5847" text-anchor="middle">Outreach email — cast, crew,</text>
+  <text x="1076" y="752" font-size="10" fill="#5c5847" text-anchor="middle">location owners</text>
+
+  <!-- ================= PERSISTENCE LAYER ================= -->
+  <text x="40" y="822" font-size="11" font-weight="800" letter-spacing="1.5" fill="#948f78">PERSISTENCE</text>
+  <rect x="40" y="832" width="1220" height="110" rx="12" fill="#eaf6f2" stroke="#0e8f72" stroke-width="1.5"/>
+
+  <rect x="64" y="856" width="360" height="66" rx="8" fill="#ffffff" stroke="#0e8f72" stroke-width="1.5"/>
+  <text x="244" y="878" font-size="13" font-weight="800" fill="#0e5b41" text-anchor="middle">Firestore — ProjectStore</text>
+  <text x="244" y="896" font-size="10" fill="#5c5847" text-anchor="middle">Project docs. Auto-selected when GOOGLE_CLOUD_PROJECT</text>
+  <text x="244" y="910" font-size="10" fill="#5c5847" text-anchor="middle">is set; else InMemoryProjectStore for local dev.</text>
+
+  <rect x="448" y="856" width="360" height="66" rx="8" fill="#ffffff" stroke="#0e8f72" stroke-width="1.5"/>
+  <text x="628" y="878" font-size="13" font-weight="800" fill="#0e5b41" text-anchor="middle">Cloud Storage — BlobStore</text>
+  <text x="628" y="896" font-size="10" fill="#5c5847" text-anchor="middle">Large base64 sourceDocument (uploaded script),</text>
+  <text x="628" y="910" font-size="10" fill="#5c5847" text-anchor="middle">kept out of Firestore's 1&#160;MiB doc cap.</text>
+
+  <rect x="832" y="856" width="404" height="66" rx="8" fill="#ffffff" stroke="#0e8f72" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="1034" y="878" font-size="13" font-weight="800" fill="#0e5b41" text-anchor="middle">Browser localStorage (client)</text>
+  <text x="1034" y="896" font-size="10" fill="#5c5847" text-anchor="middle">Fast/offline copy of the Project object,</text>
+  <text x="1034" y="910" font-size="10" fill="#5c5847" text-anchor="middle">best-effort synced to the backend above.</text>
+
+  <!-- vertical connectors backend -> persistence -->
+  <line x1="1030" y1="632" x2="1030" y2="856" stroke="#0e8f72" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrow)"/>
+  <text x="1040" y="740" font-size="10" fill="#0e5b41">project read/write</text>
+
+  <!-- vertical connectors backend -> external (Gemini/Parallel/Open-Meteo/Mailpit) -->
+  <line x1="194" y1="632" x2="194" y2="696" stroke="#d9483a" stroke-width="2" marker-end="url(#arrowCoral)"/>
+  <line x1="478" y1="632" x2="478" y2="696" stroke="#1c7fb8" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="762" y1="632" x2="762" y2="696" stroke="#1c7fb8" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="1100" y1="632" x2="1100" y2="696" stroke="#1c7fb8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Legend -->
+  <text x="40" y="962" font-size="10" fill="#5c5847">■ Blue = frontend / non-AI network calls &#160;&#160; ■ Orange = FastAPI backend &#160;&#160; ■ Red = Gemini 3.5 Flash calls &#160;&#160; ■ Green = persistence &amp; deterministic Python tools &#160;&#160; ■ Amber = plain REST routers</text>
+</svg>

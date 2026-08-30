@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VantageTime — Developer Overview</title>
+<style>
+  :root {
+    --bg: #f7f1e2;
+    --bg2: #efe6cf;
+    --panel: #ffffff;
+    --panel2: #f2ebd8;
+    --edge: #ded2ae;
+    --ink: #17130d;
+    --dim: #5c5847;
+    --faint: #948f78;
+    --accent: #d9640a;
+    --accent-ink: #fff8ef;
+    --amber: #a86a00;
+    --blue: #1c7fb8;
+    --coral: #d9483a;
+    --mint: #0e8f72;
+    --code-bg: #1c1912;
+    --code-ink: #f2ebd8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  a { color: var(--blue); }
+  .wrap { display: flex; max-width: 1400px; margin: 0 auto; }
+  nav.toc {
+    position: sticky; top: 0; align-self: flex-start; height: 100vh; overflow-y: auto;
+    width: 260px; flex: 0 0 260px; padding: 28px 18px; border-right: 1px solid var(--edge);
+    background: var(--panel2);
+  }
+  nav.toc .brand { font-weight: 800; font-size: 1.05rem; letter-spacing: 0.02em; margin-bottom: 4px; }
+  nav.toc .brand span { color: var(--accent); }
+  nav.toc .sub { font-size: 0.72rem; color: var(--faint); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 22px; }
+  nav.toc ul { list-style: none; margin: 0; padding: 0; }
+  nav.toc li { margin: 0; }
+  nav.toc a {
+    display: block; padding: 7px 10px; border-radius: 6px; color: var(--dim);
+    text-decoration: none; font-size: 0.86rem; font-weight: 600;
+  }
+  nav.toc a:hover { background: var(--panel); color: var(--ink); }
+  main { flex: 1; min-width: 0; padding: 48px 56px 120px; }
+  header.hero {
+    padding: 40px 36px; border-radius: 16px; margin-bottom: 40px;
+    background: radial-gradient(900px 400px at 10% -20%, rgba(217,100,10,0.20), transparent 60%),
+                radial-gradient(700px 380px at 100% 0%, rgba(28,127,184,0.16), transparent 55%),
+                var(--panel2);
+    border: 1px solid var(--edge);
+  }
+  header.hero .eyebrow {
+    display: inline-block; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--accent); background: #fff2e2; border: 1px solid #f0c896;
+    padding: 4px 10px; border-radius: 999px; margin-bottom: 14px;
+  }
+  header.hero h1 { font-size: 2.4rem; margin: 0 0 10px; letter-spacing: -0.01em; }
+  header.hero p.tag { font-size: 1.08rem; color: var(--dim); max-width: 720px; margin: 0; }
+  section { margin-bottom: 56px; scroll-margin-top: 20px; }
+  h2 {
+    font-size: 1.5rem; margin: 0 0 6px; padding-bottom: 12px; border-bottom: 2px solid var(--edge);
+  }
+  h2 .num { color: var(--faint); font-weight: 700; margin-right: 8px; }
+  h3 { font-size: 1.12rem; margin: 28px 0 10px; }
+  h4 { font-size: 0.98rem; margin: 20px 0 8px; color: var(--dim); }
+  p { color: var(--ink); }
+  .lede { font-size: 1.02rem; color: var(--dim); max-width: 780px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 900px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 12px; padding: 18px 20px;
+  }
+  .card h4 { margin-top: 0; color: var(--ink); font-size: 1rem; }
+  .card p { font-size: 0.9rem; color: var(--dim); margin: 0; }
+  .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+  .pill {
+    font-size: 0.78rem; font-weight: 700; padding: 5px 12px; border-radius: 999px;
+    border: 1px solid var(--edge); background: var(--panel); color: var(--dim);
+  }
+  .pill.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .pill.blue { background: var(--blue); color: #fff; border-color: var(--blue); }
+  code, pre code {
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 0.86rem;
+  }
+  code {
+    background: #efe4c9; padding: 1px 6px; border-radius: 5px; color: var(--coral);
+  }
+  pre {
+    background: var(--code-bg); color: var(--code-ink); padding: 18px 20px; border-radius: 10px;
+    overflow-x: auto; font-size: 0.84rem; line-height: 1.6;
+  }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 0.88rem; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--edge); vertical-align: top; }
+  th { color: var(--faint); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 800; }
+  td code { font-size: 0.8rem; }
+  .note {
+    border-left: 4px solid var(--blue); background: #eaf3f8; padding: 12px 16px; border-radius: 0 8px 8px 0;
+    font-size: 0.9rem; margin: 16px 0;
+  }
+  .warn {
+    border-left: 4px solid var(--coral); background: #fbecea; padding: 12px 16px; border-radius: 0 8px 8px 0;
+    font-size: 0.9rem; margin: 16px 0;
+  }
+  .good {
+    border-left: 4px solid var(--mint); background: #e9f5f1; padding: 12px 16px; border-radius: 0 8px 8px 0;
+    font-size: 0.9rem; margin: 16px 0;
+  }
+  /* --- pipeline diagram --- */
+  .pipeline { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; margin: 22px 0; }
+  .stage {
+    flex: 1 1 150px; background: var(--panel); border: 1px solid var(--edge); border-radius: 10px;
+    padding: 14px; position: relative;
+  }
+  .stage .k { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+  .stage .t { font-weight: 700; margin: 4px 0 6px; font-size: 0.92rem; }
+  .stage .d { font-size: 0.78rem; color: var(--dim); }
+  .arrow { display: flex; align-items: center; color: var(--faint); font-size: 1.3rem; flex: 0 0 auto; }
+  .stage.parallel { border-color: var(--blue); background: #eef6fb; }
+  .stage.tool { border-color: var(--mint); background: #eaf6f2; }
+  .fanout { display: flex; flex-direction: column; gap: 6px; }
+  .fanout .mini {
+    font-size: 0.72rem; background: var(--panel); border: 1px dashed var(--blue); border-radius: 6px; padding: 4px 8px; color: var(--blue); font-weight: 700;
+  }
+  /* --- mockup device frame for recreated screens --- */
+  .mockup {
+    border: 1px solid var(--edge); border-radius: 14px; overflow: hidden; margin: 20px 0;
+    box-shadow: 0 8px 24px rgba(23,19,13,0.08);
+  }
+  .mockup .chrome {
+    background: #e7ddc0; padding: 8px 12px; display: flex; align-items: center; gap: 6px;
+    border-bottom: 1px solid var(--edge);
+  }
+  .mockup .dot { width: 9px; height: 9px; border-radius: 50%; background: #d8ccae; }
+  .mockup .url {
+    margin-left: 10px; font-size: 0.72rem; color: var(--dim); background: var(--panel);
+    padding: 3px 10px; border-radius: 6px; flex: 1;
+  }
+  .mockup .caption {
+    font-size: 0.76rem; color: var(--faint); padding: 8px 14px; background: var(--panel2); border-top: 1px solid var(--edge);
+  }
+  .mockup .screen { background: var(--bg); padding: 20px; }
+  .app-tabs { display: flex; gap: 4px; margin-bottom: 14px; flex-wrap: wrap; }
+  .app-tab {
+    font-size: 0.72rem; font-weight: 700; padding: 6px 12px; border-radius: 8px 8px 0 0;
+    background: var(--panel2); color: var(--dim); border: 1px solid var(--edge); border-bottom: none;
+  }
+  .app-tab.active { background: var(--panel); color: var(--accent); }
+  .app-panel { background: var(--panel); border: 1px solid var(--edge); border-radius: 0 10px 10px 10px; padding: 16px; }
+  .stat-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
+  .stat {
+    flex: 1 1 100px; background: var(--panel2); border: 1px solid var(--edge); border-radius: 8px;
+    padding: 8px 10px; text-align: center;
+  }
+  .stat .n { font-size: 1.15rem; font-weight: 800; color: var(--accent); }
+  .stat .l { font-size: 0.65rem; color: var(--faint); text-transform: uppercase; letter-spacing: 0.05em; }
+  .fake-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--edge); font-size: 0.82rem; }
+  .fake-row:last-child { border-bottom: none; }
+  .badge { font-size: 0.66rem; font-weight: 800; padding: 3px 8px; border-radius: 999px; }
+  .badge.done { background: #e2f2ea; color: var(--mint); }
+  .badge.pending { background: #fbecea; color: var(--coral); }
+  .badge.wait { background: #fbf1de; color: var(--amber); }
+  .strip { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; margin-bottom: 4px; border: 1px solid rgba(0,0,0,0.08); }
+  .strip.white { background: #ffffff; color: #333; }
+  .strip.yellow { background: #fff4c2; color: #6b5600; }
+  .strip.blue { background: #cfe7f7; color: #12435c; }
+  .strip.green { background: #cdeee0; color: #0e5b41; }
+  .strip.pink { background: #f8d9e4; color: #7a2748; }
+  footer { border-top: 1px solid var(--edge); padding: 28px 56px; color: var(--faint); font-size: 0.82rem; }
+  .filetable td:first-child { white-space: nowrap; }
+  .kicker { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="toc">
+  <div class="brand">Vantage<span>Time</span></div>
+  <div class="sub">Developer Overview</div>
+  <ul>
+    <li><a href="#vision">1. Vision</a></li>
+    <li><a href="#stack">2. Tech Stack</a></li>
+    <li><a href="#architecture">3. Architecture</a></li>
+    <li><a href="#dataflow">4. Data Flow</a></li>
+    <li><a href="#datamodel">5. Data Model</a></li>
+    <li><a href="#tabs">6. Tab-by-Tab Tour</a></li>
+    <li><a href="#deterministic">7. Deterministic vs. LLM</a></li>
+    <li><a href="#files">8. Codebase Map</a></li>
+    <li><a href="#setup">9. Local Setup</a></li>
+    <li><a href="#gaps">10. Known Gaps</a></li>
+  </ul>
+</nav>
+
+<main>
+
+<header class="hero">
+  <div class="eyebrow">Internal — Developer Handoff</div>
+  <h1>VantageTime</h1>
+  <p class="tag">A script-to-schedule-to-call-sheet AI tool for indie filmmakers, YouTubers, and film students —
+  the radically cheaper, mobile-first alternative to StudioBinder / Filmustage / Yamdu / Celtx. Upload a script;
+  get a scene breakdown, a validated shoot schedule, real location research, a call sheet, and a full cast/crew
+  confirmation loop — coordinated by a real multi-agent pipeline, not a single prompt with a form bolted on.</p>
+</header>
+
+<section id="vision">
+  <h2><span class="num">1</span>Vision</h2>
+  <p class="lede">
+    Tools like StudioBinder, Filmustage, Yamdu, and Celtx are built for productions with a line producer, a UPM,
+    and a budget line for software. VantageTime targets the audience those tools ignore: a solo filmmaker, a
+    two-person crew, a film-school short, a YouTube narrative shoot — someone who needs the same coordination
+    problem solved (who's free, where can we shoot, what does day 3 look like) but has neither the budget nor the
+    time to learn enterprise production-management software.
+  </p>
+  <p class="lede">
+    The bet is that most of what a line producer does by hand — breaking down a script into scenes, grouping
+    scenes into shootable days, checking that nobody's double-booked, chasing cast for their availability,
+    building a call sheet — is mechanical enough to automate end-to-end, as long as the arithmetic is done by
+    real code and the AI is only asked to do what AI is actually good at: reading unstructured text (a script
+    PDF, a location's web presence) and turning it into structured decisions.
+  </p>
+  <div class="grid3">
+    <div class="card">
+      <h4>Autopilot as the spine</h4>
+      <p>Rather than nine independent tabs a user has to figure out on their own, one guided flow —
+      Autopilot — walks them through the whole production in order, surfacing exactly what's blocking
+      each step and letting them fix it inline without leaving the flow.</p>
+    </div>
+    <div class="card">
+      <h4>Never guess, always report</h4>
+      <p>Every agent that touches a number (schedule feasibility, cast hours, dates, weather) hands off to
+      deterministic Python and reports that tool's output verbatim. If a tool can't answer, the UI shows a
+      real "needs review" state — never a plausible-sounding fabrication.</p>
+    </div>
+    <div class="card">
+      <h4>Built for one person</h4>
+      <p>No roles, no permissions, no seat licensing. A single filmmaker owns the whole project: script to
+      schedule to call sheet to payroll, in one continuous surface, at a price point (target ~$10/mo) that
+      makes sense for a $2,000 short film, not a $2M feature.</p>
+    </div>
+  </div>
+  <p class="lede">Originally built for Google's Agentic Cinema hackathon (Parallel track) — see <code>PLAN.md</code>
+  in the repo root for the original build plan and agent-architecture sketch this shipped implementation grew from.</p>
+</section>
+
+<section id="stack">
+  <h2><span class="num">2</span>Tech Stack</h2>
+  <div class="grid2">
+    <div class="card">
+      <h4>Frontend</h4>
+      <div class="pill-row">
+        <span class="pill on">Next.js 16.3.0 (App Router)</span>
+        <span class="pill on">React 19.2.8</span>
+        <span class="pill on">TypeScript 5</span>
+        <span class="pill on">Tailwind CSS v4</span>
+      </div>
+      <p>No component library, no state-management library — a single <code>Project</code> object typed in
+      <code>lib/types.ts</code> holds all project state; React state + <code>localStorage</code> is the whole
+      persistence layer client-side. Native HTML5 drag-and-drop for the Stripboard (no DnD library). Native
+      <code>@media print</code> stylesheets for printable views (Call Sheet, Availability report, DOOD).</p>
+    </div>
+    <div class="card">
+      <h4>Backend</h4>
+      <div class="pill-row">
+        <span class="pill on">FastAPI</span>
+        <span class="pill on">Google ADK (google-adk)</span>
+        <span class="pill on">Gemini 3.5 Flash</span>
+        <span class="pill on">Python</span>
+      </div>
+      <p>Google's Agent Development Kit provides the <code>SequentialAgent</code> / <code>ParallelAgent</code> /
+      <code>Agent</code> primitives and session/state plumbing. Every agent in the pipeline runs the same model,
+      <code>gemini-3.5-flash</code>, configured centrally in <code>backend/common/model_config.py</code>.</p>
+    </div>
+    <div class="card">
+      <h4>External integrations</h4>
+      <div class="pill-row">
+        <span class="pill blue">Parallel Web Search API</span>
+        <span class="pill blue">Open-Meteo</span>
+        <span class="pill blue">Mailpit / SMTP</span>
+      </div>
+      <p><b>Parallel</b> (<code>PARALLEL_API_KEY</code>) powers real web search for location permit/logistics
+      research. <b>Open-Meteo</b> (free, no key) supplies geocoding plus live forecast or genuine multi-year
+      historical averages for <code>get_weather</code>. <b>Mailpit</b> is a local SMTP catcher in dev
+      (<code>MAILPIT_HOST</code> / <code>MAILPIT_PORT</code>) standing in for a real transactional-email
+      provider in production, used for outreach to cast/crew/location owners.</p>
+    </div>
+    <div class="card">
+      <h4>Persistence</h4>
+      <div class="pill-row">
+        <span class="pill blue">Firestore</span>
+        <span class="pill blue">Cloud Storage</span>
+        <span class="pill">In-memory fallback</span>
+      </div>
+      <p>A <code>ProjectStore</code> protocol backs project documents with either <code>InMemoryProjectStore</code>
+      (default, dev) or <code>FirestoreProjectStore</code>, auto-selected by the presence of
+      <code>GOOGLE_CLOUD_PROJECT</code>. The large base64 <code>sourceDocument</code> field (the originally
+      uploaded script) is kept out of Firestore's 1&nbsp;MiB document cap via a matching <code>BlobStore</code>
+      (<code>LocalBlobStore</code> / <code>GCSBlobStore</code>). Client-side, every project also lives in
+      <code>localStorage</code> as the fast/offline copy, best-effort synced to the backend.</p>
+    </div>
+  </div>
+</section>
+
+<section id="architecture">
+  <h2><span class="num">3</span>Architecture — The Agent Pipeline</h2>
+  <p class="lede">
+    The core of the backend is one ADK <code>SequentialAgent</code>, <code>production_pipeline</code>
+    (<code>backend/common/agents.py</code>), run once per uploaded script. Each stage writes its output to
+    shared ADK session state under a fixed key (<code>output_key</code>), and the next stage reads only from
+    that state — no stage re-reads the original script.
+  </p>
+
+  <div class="pipeline">
+    <div class="stage">
+      <div class="k">Stage 1</div>
+      <div class="t">Script Breakdown Agent</div>
+      <div class="d">Reads the script PDF natively (Gemini multimodal, no OCR). Extracts scenes, cast, props,
+      locations into structured JSON. <code>output_key="breakdown"</code></div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="stage parallel">
+      <div class="k">Stage 2 · ParallelAgent</div>
+      <div class="t">Location Research Pipeline</div>
+      <div class="d">Up to <code>LOCATION_SLOTS = 5</code> <code>location_research_agent_N</code> instances run
+      concurrently, one per distinct script location.</div>
+      <div class="fanout" style="margin-top:8px;">
+        <span class="mini">search_location() → Parallel Web API</span>
+        <span class="mini">permits · weather norms · logistics</span>
+      </div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="stage">
+      <div class="k">Stage 3</div>
+      <div class="t">Scheduling Agent</div>
+      <div class="d">Proposes shoot order + day groupings, then hands off to deterministic tools:
+      <code>validate_schedule</code>, <code>assign_calendar_dates</code>, <code>get_weather</code>,
+      <code>estimate_cast_hours</code>. <code>output_key="schedule"</code></div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="stage">
+      <div class="k">Stage 4</div>
+      <div class="t">Call Sheet Generator</div>
+      <div class="d">Synthesizes breakdown + validated schedule + location research into one call sheet per
+      shoot day. Flags gaps instead of inventing facts. <code>output_key="call_sheets"</code></div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="stage">
+      <div class="k">Stage 5</div>
+      <div class="t">Availability Agent</div>
+      <div class="d">Drafts a personal outreach message per cast member with their real scheduled days/dates/hours.
+      Drafting only — tokens, links, and response tracking are deterministic backend code.
+      <code>output_key="cast_outreach"</code></div>
+    </div>
+  </div>
+
+  <h3>Separate, non-sequential agent</h3>
+  <p><code>roster_extraction_agent</code> is its own ADK app, used only on the alternate "I already have
+  production data" entry path — extracting a cast/crew roster from an uploaded PDF/DOCX rather than a script.
+  It never runs as part of <code>production_pipeline</code>.</p>
+
+  <h3>What's <em>not</em> an ADK agent</h3>
+  <p>Everything after the pipeline finishes is plain deterministic FastAPI, on purpose — an actor clicking a
+  magic link three days later has nothing to do with the filmmaker's original chat session:</p>
+  <table>
+    <tr><th>Router</th><th>Responsibility</th></tr>
+    <tr><td><code>availability_routes.py</code></td><td>Actor/crew/location magic-link pages: candidate-date
+    submission, confirm/reject, priority ladder, conflict detection.</td></tr>
+    <tr><td><code>chat_routes.py</code></td><td>The floating chat assistant — a single Gemini call per message
+    with a project-state snapshot and a fixed callable-action schema (not an ADK agent; see below).</td></tr>
+    <tr><td><code>roster_import.py</code></td><td>CSV roster import + template generation.</td></tr>
+    <tr><td><code>projects_routes.py</code></td><td>Backend project persistence (Firestore/in-memory) + blob
+    storage for the uploaded source document.</td></tr>
+    <tr><td><code>mailer.py</code></td><td>SMTP send via Mailpit (dev) for all outreach email.</td></tr>
+  </table>
+
+  <div class="note">
+    <b>Why <code>/assistant</code> chat isn't an ADK agent:</b> it's a plain REST endpoint that makes one Gemini
+    function-calling request per message, passing the current project-state snapshot plus a fixed schema of
+    callable UI actions. The frontend (<code>ChatPanel.tsx</code> / <code>ChatWidget.tsx</code>, dispatched
+    through <code>page.tsx</code>'s <code>applyChatAction</code>) executes whatever action comes back using the
+    exact same update functions the manual UI itself calls — so a chat-driven edit and a manual edit can never
+    diverge or fight each other.
+  </div>
+</section>
+
+<section id="dataflow">
+  <h2><span class="num">4</span>Data Flow</h2>
+  <p class="lede">Two different lifecycles meet in the frontend's single <code>Project</code> object.</p>
+  <div class="grid2">
+    <div class="card">
+      <h4>1. One-time pipeline run</h4>
+      <p>Upload → <code>runPipeline()</code> → backend spins up an ADK session → the five-stage sequential
+      pipeline runs (location research fanned out in parallel) → structured JSON lands in session state at
+      each stage → frontend receives <code>breakdown</code>, <code>schedule</code>, <code>call_sheets</code>,
+      <code>cast_outreach</code> and folds them into a new <code>Project</code>.</p>
+    </div>
+    <div class="card">
+      <h4>2. Ongoing, deterministic edits</h4>
+      <p>Everything after that — reordering scenes on the Stripboard, editing a call sheet field, logging a time
+      card, approving a pay rate, sending outreach — is a plain React state update, no LLM involved. Saved to
+      <code>localStorage</code> on every change and best-effort synced to the backend's <code>ProjectStore</code>.</p>
+    </div>
+  </div>
+  <p>Every tab, plus the persistent <code>AttentionBar</code> (<code>lib/attention.ts</code>) and the
+  <code>AutopilotSection</code> step cards, is a pure function of this one <code>Project</code> object — there's
+  no separate source of truth to keep in sync per tab.</p>
+</section>
+
+<section id="datamodel">
+  <h2><span class="num">5</span>Data Model</h2>
+  <p class="lede">Everything lives on one <code>Project</code> type (<code>frontend/src/lib/types.ts</code>).
+  The fields below are the ones a new contributor will touch most.</p>
+  <table class="filetable">
+    <tr><th>Field</th><th>Type</th><th>Set by</th></tr>
+    <tr><td><code>breakdown</code></td><td>scenes / cast / props / locations</td><td>Script Breakdown Agent</td></tr>
+    <tr><td><code>schedule</code></td><td><code>shoot_days[]</code> with dates, weather, cast hours</td><td>Scheduling Agent + deterministic tools</td></tr>
+    <tr><td><code>callSheets</code></td><td>one call sheet per shoot day</td><td>Call Sheet Generator</td></tr>
+    <tr><td><code>locationResearch</code></td><td>permits / weather norms / logistics per location</td><td>Location Research Agents</td></tr>
+    <tr><td><code>locationAvailability</code></td><td>per-location rules, contact, review status</td><td>User + magic-link responses</td></tr>
+    <tr><td><code>castOutreach</code> / <code>castEmails</code> / <code>availabilityLinks</code></td><td>outreach drafts, contact info, sent tokens</td><td>Availability Agent + user</td></tr>
+    <tr><td><code>crew</code></td><td>crew roster with priority flag</td><td>User or roster import</td></tr>
+    <tr><td><code>tasks</code></td><td>Task Master items</td><td>User</td></tr>
+    <tr><td><code>payRates</code> / <code>timeCards</code></td><td>day/hourly pay rates; per-day logged hours + status</td><td>User</td></tr>
+    <tr><td><code>locationOutreach</code></td><td>location-owner notify status</td><td>User</td></tr>
+    <tr><td><code>sourceDocument</code></td><td>base64 of the originally uploaded script/data file</td><td>Upload</td></tr>
+    <tr><td><code>status</code></td><td><code>live | inProgress | archived</code></td><td>User</td></tr>
+  </table>
+  <p>New fields added after projects already existed in <code>localStorage</code> are backfilled on load in
+  <code>lib/storage.ts</code> (<code>loadProjects()</code>) — e.g. <code>payRates: p.payRates ?? {}</code> —
+  so older saved projects never crash a component that expects a field they predate.</p>
+</section>
+
+<section id="tabs">
+  <h2><span class="num">6</span>Tab-by-Tab Tour</h2>
+  <p class="lede">Eight stages plus Settings, in the order a production actually happens. Screens below are
+  faithful CSS recreations of the live app — built from the app's real components, data, and exact CSS color
+  tokens (not literal screenshots; see the note at the end of this section).</p>
+
+  <h3>Autopilot — the guided spine</h3>
+  <div class="mockup">
+    <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="url">localhost:3000/ — Autopilot</div></div>
+    <div class="screen">
+      <div class="app-tabs">
+        <div class="app-tab active">Autopilot</div><div class="app-tab">Breakdown</div><div class="app-tab">Members</div>
+        <div class="app-tab">Dates</div><div class="app-tab">Call Sheet</div><div class="app-tab">Task Master</div>
+        <div class="app-tab">Time Cards</div><div class="app-tab">Dashboard</div>
+      </div>
+      <div class="app-panel">
+        <div class="fake-row"><span>① Members — cast &amp; crew added</span><span class="badge done">Done</span></div>
+        <div class="fake-row"><span>② Shoot dates — window confirmed</span><span class="badge done">Done</span></div>
+        <div class="fake-row"><span>③ Check locations — 2 need review</span><span class="badge pending">Attention</span></div>
+        <div class="fake-row"><span>④ Notify location owners</span><span class="badge wait">Waiting</span></div>
+        <div class="fake-row"><span>⑤ Notify actors</span><span class="badge wait">Waiting</span></div>
+        <div class="fake-row"><span>⑥ Full plan — everyone locked in</span><span class="badge wait">Waiting</span></div>
+        <div class="fake-row"><span>⑦ Tasks — 3 open</span><span class="badge pending">Attention</span></div>
+        <div class="fake-row"><span>⑧ Time cards — 1 unapproved</span><span class="badge pending">Attention</span></div>
+      </div>
+    </div>
+    <div class="caption">Eight step cards, each with an inline fix — add a missing email, correct a location
+    address, set a pay rate — without ever leaving Autopilot.</div>
+  </div>
+
+  <h3>Breakdown</h3>
+  <p>Read-only view of what the Script Breakdown Agent extracted: scenes (int/ext, time of day, page count,
+  characters, props), cast list, prop list, location list — plus a link to view/download the originally uploaded
+  script.</p>
+
+  <h3>Members</h3>
+  <p>Cast and crew roster: inline-editable names/roles, add/remove, priority flag (used by the alternative-date
+  suggestion engine to weight priority people's availability first).</p>
+
+  <h3>Dates — five sub-tabs</h3>
+  <div class="mockup">
+    <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="url">localhost:3000/ — Dates → Stripboard</div></div>
+    <div class="screen">
+      <div class="app-tabs">
+        <div class="app-tab">Shoot Window</div><div class="app-tab active">Stripboard</div><div class="app-tab">Day-Out-of-Days</div>
+        <div class="app-tab">Location Research</div><div class="app-tab">Roster</div>
+      </div>
+      <div class="app-panel">
+        <div class="stat-row">
+          <div class="stat"><div class="n">DAY 1</div><div class="l">Aug 27</div></div>
+          <div class="stat"><div class="n">DAY 2</div><div class="l">Aug 28</div></div>
+          <div class="stat"><div class="n">DAY 3</div><div class="l">Aug 29</div></div>
+        </div>
+        <div class="strip yellow">SC 4 — EXT. ALLEY — DAY</div>
+        <div class="strip blue">SC 7 — INT. DINER — NIGHT</div>
+        <div class="strip white">SC 2 — INT. APARTMENT — DAY</div>
+        <div class="strip green">SC 11 — EXT. ROOFTOP — NIGHT</div>
+        <div class="strip pink">SC 9 — EXT. PARK — DUSK</div>
+      </div>
+    </div>
+    <div class="caption">Native HTML5 drag-and-drop stripboard. Industry-standard strip colors — white
+    INT/DAY, yellow EXT/DAY, blue INT/NIGHT, green EXT/NIGHT, pink DAWN/DUSK. Every drop recomputes day
+    metadata (cast hours, locations used) live via <code>lib/stripboard.ts</code>.</div>
+  </div>
+  <table>
+    <tr><th>Sub-tab</th><th>Purpose</th></tr>
+    <tr><td>Shoot Window</td><td>Sets the real date range; syncs each dated day to Google Calendar via pre-filled
+    quick-add links (no OAuth).</td></tr>
+    <tr><td>Stripboard</td><td>Drag-and-drop scene reordering across days, with live color-coded strips.</td></tr>
+    <tr><td>Day-Out-of-Days</td><td>Per-cast-member Work/Hold grid across the whole shoot — printable, derived
+    purely from <code>schedule.shoot_days</code> (<code>lib/dood.ts</code>).</td></tr>
+    <tr><td>Location Research</td><td>Live permit/logistics/weather findings per location from the Location
+    Research Agents, plus the review/approve gate.</td></tr>
+    <tr><td>Roster</td><td>Per-location availability rules (days of week, date window, priority) and per-person
+    candidate-date responses collected via magic links.</td></tr>
+  </table>
+
+  <h3>Call Sheet</h3>
+  <p>One generated call sheet per shoot day — call times, location + address + contact, weather, scene list,
+  cast/crew call, meal breaks, custom Q&amp;A fields — fully editable, printable via a dedicated
+  <code>@media print</code> block.</p>
+
+  <h3>Task Master</h3>
+  <p>Freeform production task list — status tracking, feeds the AttentionBar's open-task count.</p>
+
+  <h3>Time Cards</h3>
+  <div class="mockup">
+    <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="url">localhost:3000/ — Time Cards</div></div>
+    <div class="screen">
+      <div class="app-panel">
+        <div class="fake-row"><span><b>Pay Rates</b> — 4 of 6 set</span><span></span></div>
+        <div class="fake-row"><span>Maya Torres — $450/day</span><span></span></div>
+        <div class="fake-row"><span>Diego Alvarez — $28.00/hr, 1.5× after 8h, 2× after 12h</span><span></span></div>
+        <div class="fake-row"><span><b>Day 2</b> — call 07:00, wrap 19:30, 30m meal</span><span class="badge done">Approved</span></div>
+        <div class="fake-row"><span>Total hours 12.0 · OT 4.0 · <b>$612.00</b></span><span></span></div>
+      </div>
+    </div>
+    <div class="caption">Day-rate or hourly pay, configurable OT/2× thresholds, real midnight-crossing-aware
+    hours computation from call/wrap/meal-break times, CSV export (<code>lib/timecards.ts</code>).</div>
+  </div>
+
+  <h3>Dashboard</h3>
+  <p>Merges what were originally separate Status + Availability tabs: one table of every cast/crew member's
+  response status (locked in / awaiting dates / pending / unavailable), plus a printable production-wide
+  availability report.</p>
+
+  <h3>Settings</h3>
+  <p>Company profile, team member directory — used to prefill outreach messages and call sheet headers.</p>
+
+  <div class="note">
+    <b>About the screens above:</b> these are CSS/HTML recreations built directly from this session's live
+    click-through of the running app — same real copy, same real data shapes, same exact color tokens from
+    <code>globals.css</code> — not literal pixel screenshots. The browser-automation channel available this
+    session truncates any image payload it tries to relay out of the page (~1,400 characters, regardless of
+    actual image size), so raw screenshots couldn't be embedded directly. Swap in real PNG screenshots any time
+    by replacing a <code>.mockup</code> block's <code>.screen</code> contents with an <code>&lt;img&gt;</code> tag.
+  </div>
+</section>
+
+<section id="deterministic">
+  <h2><span class="num">7</span>Deterministic vs. LLM — the core design rule</h2>
+  <p class="lede">The single rule that shows up most often in the codebase's own comments: <b>an agent proposes,
+  a real tool checks or computes, and the agent must report that tool's output verbatim</b> rather than reason
+  about feasibility, dates, or hours itself.</p>
+  <table>
+    <tr><th>Tool</th><th>What it replaces an LLM guess with</th></tr>
+    <tr><td><code>validate_schedule</code></td><td>Real conflict detection — cast double-bookings, day-length
+    overloads, infeasible multi-location days.</td></tr>
+    <tr><td><code>assign_calendar_dates</code></td><td>Real date arithmetic against the confirmed shoot window.</td></tr>
+    <tr><td><code>get_weather</code></td><td>A live Open-Meteo forecast, or a genuine multi-year historical
+    average when the date is too far out for a forecast — never an invented "probably sunny."</td></tr>
+    <tr><td><code>estimate_cast_hours</code></td><td>Each cast member's real share of a shoot day's pages,
+    computed identically on frontend (<code>lib/stripboard.ts</code>) and backend so a manual Stripboard move
+    and the original agent output never disagree.</td></tr>
+  </table>
+  <p>This is why the app can say "needs review" instead of a plausible-sounding wrong answer: any time a
+  deterministic tool can't resolve something (missing address, no forecast data, an unreachable location page),
+  that gap is surfaced to the user as a real open item — in the AttentionBar, in Autopilot, or inline in the tab
+  itself — rather than silently papered over.</p>
+</section>
+
+<section id="files">
+  <h2><span class="num">8</span>Codebase Map</h2>
+  <h3>Backend — <code>backend/</code></h3>
+  <table class="filetable">
+    <tr><td><code>server.py</code></td><td>FastAPI app, mounts all routers.</td></tr>
+    <tr><td><code>orchestrator/agent.py</code></td><td>Root agent wiring the pipeline.</td></tr>
+    <tr><td><code>common/agents.py</code></td><td>Every agent definition — breakdown, location research fan-out,
+    scheduling, call sheet, availability, roster extraction.</td></tr>
+    <tr><td><code>common/tools.py</code></td><td>Deterministic Python tools: <code>validate_schedule</code>,
+    <code>assign_calendar_dates</code>, <code>get_weather</code>, <code>estimate_cast_hours</code>,
+    <code>search_location</code>.</td></tr>
+    <tr><td><code>common/model_config.py</code></td><td>Central Gemini model configuration.</td></tr>
+    <tr><td><code>common/availability_routes.py</code></td><td>Magic-link actor/crew/location pages, deterministic
+    response tracking.</td></tr>
+    <tr><td><code>common/chat_routes.py</code></td><td>The <code>/assistant</code> chat endpoint.</td></tr>
+    <tr><td><code>common/roster_import.py</code></td><td>CSV roster import + template.</td></tr>
+    <tr><td><code>common/project_store.py</code></td><td><code>ProjectStore</code> protocol +
+    in-memory/Firestore implementations.</td></tr>
+    <tr><td><code>common/blob_store.py</code></td><td>Local/GCS blob storage for uploaded source documents.</td></tr>
+    <tr><td><code>common/projects_routes.py</code></td><td>Backend project persistence API.</td></tr>
+    <tr><td><code>common/mailer.py</code></td><td>SMTP send via Mailpit.</td></tr>
+  </table>
+  <h3>Frontend — <code>frontend/src/</code></h3>
+  <table class="filetable">
+    <tr><td><code>app/page.tsx</code></td><td>Top-level project state, all CRUD handlers, tab routing.</td></tr>
+    <tr><td><code>lib/types.ts</code></td><td>Every type — <code>Project</code>, <code>StageKey</code>, etc.</td></tr>
+    <tr><td><code>lib/storage.ts</code></td><td><code>localStorage</code> load/save + backfill for new fields.</td></tr>
+    <tr><td><code>lib/attention.ts</code></td><td><code>computeAttentionItems()</code> — drives the AttentionBar.</td></tr>
+    <tr><td><code>lib/stripboard.ts</code></td><td>Scene move logic, strip color coding, cast-hours recompute.</td></tr>
+    <tr><td><code>lib/dood.ts</code></td><td>Day-Out-of-Days computation.</td></tr>
+    <tr><td><code>lib/timecards.ts</code></td><td>Pay computation, CSV export.</td></tr>
+    <tr><td><code>components/AutopilotSection.tsx</code></td><td>The guided step-by-step flow.</td></tr>
+    <tr><td><code>components/StripboardSection.tsx</code></td><td>Drag-and-drop UI.</td></tr>
+    <tr><td><code>components/DoodSection.tsx</code>, <code>TimeCardsSection.tsx</code>, <code>CallSheetSection.tsx</code>,
+    <code>AvailabilitySection.tsx</code>, <code>DatesSection.tsx</code>, <code>MembersSection.tsx</code>,
+    <code>TaskMasterSection.tsx</code>, <code>SettingsSection.tsx</code></td><td>One component per tab/sub-tab.</td></tr>
+    <tr><td><code>components/ChatPanel.tsx</code> / <code>ChatWidget.tsx</code></td><td>Chat assistant UI +
+    floating bubble.</td></tr>
+    <tr><td><code>app/globals.css</code></td><td>The full color-token system + print stylesheets.</td></tr>
+  </table>
+</section>
+
+<section id="setup">
+  <h2><span class="num">9</span>Local Setup</h2>
+  <pre><code># Backend
+cd backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env   # fill in PARALLEL_API_KEY, GOOGLE_CLOUD_PROJECT (optional), MAILPIT_HOST/PORT
+uvicorn server:app --reload --port 8000
+
+# Frontend
+cd frontend
+npm install
+npm run dev   # http://localhost:3000, expects the backend on :8000</code></pre>
+  <div class="note">
+    Run <code>gcloud auth application-default login</code> once if Vertex AI credentials aren't already set up
+    on this machine. Without <code>GOOGLE_CLOUD_PROJECT</code> set, the backend falls back to
+    <code>InMemoryProjectStore</code>/<code>LocalBlobStore</code> automatically — no GCP project required for
+    local dev.
+  </div>
+</section>
+
+<section id="gaps">
+  <h2><span class="num">10</span>Known Gaps</h2>
+  <p class="lede">Honest state as of this handoff — nothing here is hidden or silently broken, just not built yet.</p>
+  <div class="warn">No auth / multi-user. Every project is local to whoever's browser it's in, plus a best-effort
+  backend sync — there's no login, no team accounts, no permissions model.</div>
+  <div class="warn">Not deployed. Both services are Docker/Cloud-Run-ready but run local-dev only; no live URL yet.</div>
+  <div class="warn">No script format import beyond PDF (no Fountain/Final Draft <code>.fdx</code> import).</div>
+  <div class="warn">No budgeting/line-item cost tracking beyond the Time Cards labor-cost total.</div>
+  <p>Not gaps, but worth knowing: the color/visual system went through two full redesigns this build
+  (dark/lime terminal → MotherDuck-style warm cream/orange, the current one) — <code>PLAN.md</code>'s "dark
+  terminal" description and the root <code>README.md</code>'s tab list are both stale against the current
+  8-tab, warm-palette build; trust <code>globals.css</code> and <code>types.ts</code>'s <code>STAGE_ORDER</code>
+  over either document for current truth.</p>
+</section>
+
+</main>
+</div>
+
+<footer>
+  VantageTime — Developer Overview · Generated for internal handoff · See <code>PLAN.md</code> and
+  <code>README.md</code> in the repo root for original build history.
+</footer>
+
+</body>
+</html>

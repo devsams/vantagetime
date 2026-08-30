@@ -28,7 +28,7 @@ logger = logging.getLogger("vantagetime.chat")
 # error and no obvious cause. "/assistant" avoids the collision.
 router = APIRouter(prefix="/assistant", tags=["assistant"])
 
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-3.5-flash"
 
 
 class ChatTurn(BaseModel):

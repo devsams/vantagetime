@@ -26,7 +26,7 @@ from .tools import (
     validate_schedule,
 )
 
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-3.5-flash"
 
 # Fixed number of parallel location-research slots. ADK agent trees are
 # built once at process start, so we can't spawn "one agent per location"
