@@ -511,7 +511,7 @@ export default function Home() {
 
     if (!result.ok) {
       setError(result.error ?? "Something went wrong.");
-      return;
+      return result;
     }
 
     updateProject(project.id, {
@@ -523,6 +523,7 @@ export default function Home() {
       feed: result.feed,
       updatedAt: Date.now(),
     });
+    return result;
   }
 
   async function handleFileUpload(file: File) {
@@ -546,10 +547,39 @@ export default function Home() {
     // backend-side, which keeps this once it's here).
     upsertProjectRemote(project).catch(() => {});
 
-    await submitToPipeline(project, [
+    const result = await submitToPipeline(project, [
       { text: "Break this script down and build a validated shoot schedule." },
       { inlineData: { displayName: file.name, data, mimeType: "application/pdf" } },
     ]);
+
+    // The exact mistake this guards against: someone uploads production
+    // data (a cast list, call sheet, etc.) through this "I have a
+    // script" entry point instead of "I have production data". Rather
+    // than leaving them with a fake/empty breakdown, auto-redirect the
+    // SAME file through the roster extraction path and turn this project
+    // into a roster-started one, so the mistake self-corrects instead of
+    // requiring a manual re-upload — this can happen live, mid-demo, and
+    // should recover on its own.
+    if (result?.ok && result.breakdown?.looks_like_production_data) {
+      setLoading(true);
+      try {
+        const rosterResult = await extractRosterFromDocument(project.sessionId, file);
+        const redirected = applyRosterImport(project, rosterResult);
+        updateProject(project.id, redirected);
+        setError(
+          "That looked like production data, not a script — automatically imported it as a roster instead " +
+            `(${rosterResult.people.length} people, ${rosterResult.locations.length} location(s)). ` +
+            "Double-check before sending outreach."
+        );
+      } catch (e) {
+        setError(
+          "That looked like production data, not a script, but the automatic re-import failed " +
+            `(${e instanceof Error ? e.message : "unknown error"}) — try uploading it again via ` +
+            "\"I have production data\" instead."
+        );
+      }
+      setLoading(false);
+    }
 
     // Land on Autopilot once the breakdown is in, not Call Sheet — this is
     // the one moment the checklist of what's missing (cast emails, location
@@ -599,6 +629,46 @@ export default function Home() {
         }
       } else {
         result = await extractRosterFromDocument(base.sessionId, file);
+      }
+
+      // The mirror image of the script-side check: someone attached an
+      // actual screenplay here instead of production data. Auto-redirect
+      // the same file through the script pipeline rather than leaving
+      // them with an empty roster — this can happen live, mid-demo, and
+      // should recover on its own instead of requiring a manual retry.
+      if (result.looks_like_screenplay) {
+        const data = await fileToBase64(file);
+        const pipelineResult = await runPipeline(base.sessionId, [
+          { text: "Break this script down and build a validated shoot schedule." },
+          { inlineData: { displayName: file.name, data, mimeType: file.type || "application/pdf" } },
+        ]);
+        if (pipelineResult.ok && pipelineResult.breakdown) {
+          const scriptProject: Project = {
+            ...base,
+            startedFrom: "script",
+            breakdown: pipelineResult.breakdown,
+            schedule: pipelineResult.schedule ?? base.schedule,
+            locationResearch: { ...base.locationResearch, ...pipelineResult.locationResearch },
+            callSheets: pipelineResult.callSheets ?? base.callSheets,
+            castOutreach: pipelineResult.castOutreach ?? base.castOutreach,
+            feed: pipelineResult.feed,
+            updatedAt: Date.now(),
+          };
+          setProjects((prev) => [...prev, scriptProject]);
+          setActiveId(scriptProject.id);
+          setActiveStage("autopilot");
+          upsertProjectRemote(scriptProject).catch(() => {});
+          setError(
+            "That looked like a screenplay, not production data — automatically broke it down as a script instead."
+          );
+        } else {
+          setError(
+            "That looked like a screenplay, not production data, but the automatic re-import failed — " +
+              'try uploading it again via "I have a script" instead.'
+          );
+        }
+        setLoading(false);
+        return;
       }
 
       const project = applyRosterImport(base, result);

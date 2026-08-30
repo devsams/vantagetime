@@ -94,6 +94,7 @@ JSON SHAPE (all fields required unless noted):
   ],
   "production_flags": [string],     // script-wide rollup: any flag that appears on 2+ scenes, or any single high-cost flag (stunt/vfx/animal/water)
   "notes_for_scheduling": string,   // 1-2 sentences flagging anything that will matter for shoot-day grouping (e.g. "3 night exteriors at the same location should shoot back-to-back")
+  "looks_like_production_data": boolean, // true ONLY if the attached document is clearly NOT a screenplay (see rule below) — false in every normal case, including when no document is attached at all
   "updated_this_turn": string
 }
 """
@@ -167,6 +168,7 @@ script will have far more scenes):
   ],
   "production_flags": ["crowd"],
   "notes_for_scheduling": "Ridge Line scene needs a 5+ person crowd and daylight — schedule early in the shoot in case of weather delays.",
+  "looks_like_production_data": false,
   "updated_this_turn": "Initial breakdown created."
 }
 """
@@ -199,7 +201,27 @@ SCRIPT_BREAKDOWN_INSTRUCTION = (
     "conversation, respond with the JSON shape above but every field "
     "empty/zero/null as appropriate, and put \"No script has been "
     "uploaded yet — attach a screenplay PDF to get a breakdown.\" in "
-    "\"notes_for_scheduling\". Never invent a screenplay."
+    "\"notes_for_scheduling\". Never invent a screenplay.\n\n"
+    "WRONG DOCUMENT TYPE: someone WILL occasionally attach a document "
+    "that is not a screenplay to this entry point by mistake — a cast "
+    "list, crew list, call sheet, production bible, budget, or "
+    "shooting schedule (i.e. the kind of document the OTHER entry "
+    "point, \"I have production data\", is meant for). A real "
+    "screenplay is written in scene/slugline/dialogue prose (sluglines "
+    "like \"INT. KITCHEN - DAY\", action lines, character names "
+    "centered above dialogue). A production-data document instead "
+    "looks like a table, list, or form — rows of names/roles/dates/"
+    "contact info, with no scene action or dialogue at all. If the "
+    "attached PDF clearly matches the second pattern rather than the "
+    "first, do NOT force it into a fake breakdown by inventing scenes "
+    "or treating table rows as characters. Instead set "
+    "\"looks_like_production_data\" to true, leave every other field "
+    "empty/zero (exactly like the \"no PDF attached\" case), and put "
+    "this exact message in \"notes_for_scheduling\": \"This looks like "
+    "production data (a cast/crew/location list or schedule), not a "
+    "screenplay — try the 'I have production data' upload option "
+    "instead.\" This is a genuine, common mistake, not an edge case to "
+    "skip handling."
 )
 
 # ---------------------------------------------------------------------------
@@ -234,7 +256,8 @@ JSON SHAPE (all fields required unless noted):
       "availability_end": string
     }
   ],
-  "errors": []                      // caveats about what you couldn't extract confidently — e.g. "Availability for 'Amit Kumar' was written as 'early Sept', not a real date, so it was left blank." Empty array if nothing to flag.
+  "errors": [],                     // caveats about what you couldn't extract confidently — e.g. "Availability for 'Amit Kumar' was written as 'early Sept', not a real date, so it was left blank." Empty array if nothing to flag.
+  "looks_like_screenplay": boolean  // true ONLY if the attached document is clearly a screenplay, not production data (see rule below) — false in every normal case
 }
 """
 
@@ -291,10 +314,25 @@ _ROSTER_FORMAT_RULES = (
     "\"07:00–19:00\" is a CALL TIME, not an availability date range — "
     "leave availability_start/end empty for it rather than "
     "misreading a time-of-day as a date.\n"
-    "- If the document is genuinely unreadable, empty, or clearly not "
-    "production data at all, return empty \"people\"/\"locations\" "
-    "arrays and put one clear sentence in \"errors\" saying so — never "
-    "fabricate a roster to have something to return."
+    "- If the document is genuinely unreadable or empty, return empty "
+    "\"people\"/\"locations\" arrays and put one clear sentence in "
+    "\"errors\" saying so — never fabricate a roster to have something "
+    "to return.\n"
+    "- WRONG DOCUMENT TYPE: someone WILL occasionally attach a real "
+    "screenplay to this entry point by mistake (this entry point is "
+    "for production data, not scripts — that's the OTHER entry point, "
+    "\"I have a script\"). A screenplay looks like scene/slugline/"
+    "dialogue prose (sluglines like \"INT. KITCHEN - DAY\", action "
+    "lines, character names centered above dialogue) — clearly "
+    "different from a table, list, or form of names/roles/dates/"
+    "contact info. If the attached document clearly matches the "
+    "screenplay pattern rather than the production-data pattern, do "
+    "NOT try to extract a fake people/locations roster from scene "
+    "content. Instead set \"looks_like_screenplay\" to true, return "
+    "empty \"people\"/\"locations\" arrays, and put this exact message "
+    "in \"errors\": \"This looks like a screenplay, not production "
+    "data — try the 'I have a script' upload option instead.\" This is "
+    "a genuine, common mistake, not an edge case to skip handling."
 )
 
 _ROSTER_EXAMPLE = """\
@@ -337,7 +375,8 @@ WORKED EXAMPLE (a short excerpt from a casting/crew list PDF):
   ],
   "errors": [
     "Amit Kumar's availability was listed as 'most of September', not real dates, so it was left blank."
-  ]
+  ],
+  "looks_like_screenplay": false
 }
 """
 

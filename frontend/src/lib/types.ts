@@ -173,6 +173,11 @@ export interface Breakdown {
   props: PropEntry[];
   production_flags: string[];
   notes_for_scheduling: string;
+  // true only when the attached document clearly wasn't a screenplay
+  // (a cast/crew list, call sheet, etc. uploaded via the wrong entry
+  // point) — every other field is empty/zero when this is true. See
+  // the "WRONG DOCUMENT TYPE" rule in SCRIPT_BREAKDOWN_INSTRUCTION.
+  looks_like_production_data?: boolean;
   updated_this_turn: string;
 }
 

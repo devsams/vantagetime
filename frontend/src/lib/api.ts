@@ -255,6 +255,11 @@ export interface RosterImportResult {
   people: RosterPerson[];
   locations: RosterLocation[];
   errors: string[]; // row-level problems — always shown, never silently dropped
+  // true only when extractRosterFromDocument's document was clearly a
+  // screenplay uploaded via the wrong entry point — people/locations
+  // are empty when this is true. The deterministic CSV path
+  // (importRoster) never sets this, since a .csv can't be a script.
+  looks_like_screenplay?: boolean;
 }
 
 export async function importRoster(csvText: string): Promise<RosterImportResult> {
