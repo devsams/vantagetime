@@ -36,6 +36,17 @@
   --coral: #111111;
   /* Positive/done — the lightest of the four, recedes once resolved. */
   --mint: #7a7a7a;
+  /* Loaded via a classic <link> in layout.tsx's <head>, not next/font/
+     google — next/font fetches the actual font files at BUILD time,
+     which fails the whole build if that environment has no route to
+     fonts.googleapis.com (this is what broke the first Cloud Run
+     deploy). A <link> defers the fetch to the browser at request time
+     instead, so these are just plain font-family names now, same as
+     any non-Next site, with the system-font fallback stack doing the
+     work until the real files land. */
+  --font-display: "Anton", ui-sans-serif, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
 }
 
 @theme inline {
