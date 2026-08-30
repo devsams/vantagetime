@@ -30,7 +30,7 @@ The bet is that most of what a line producer does by hand — breaking down a sc
 
 **Built for one person.** No roles, no permissions, no seat licensing. A single filmmaker owns the whole project: script to schedule to call sheet to payroll, in one continuous surface, at a price point (target ~$10/mo) that makes sense for a $2,000 short film, not a $2M feature.
 
-Built for Google's All Things Agentic Hackathon (Collaborative Partner category) — see `PLAN.md` in the repo root for the original build plan and agent-architecture sketch this shipped implementation grew from, and `docs/DEVPOST_SUBMISSION.md` for the hackathon submission text.
+Built for Google's All Things Agentic Hackathon (Taskmaster category) — see `PLAN.md` in the repo root for the original build plan and agent-architecture sketch this shipped implementation grew from, and `docs/DEVPOST_SUBMISSION.md` for the hackathon submission text.
 
 ---
 

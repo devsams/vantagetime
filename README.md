@@ -1,6 +1,6 @@
 # VantageTime
 
-A script-to-schedule-to-call-sheet AI tool for indie filmmakers, YouTubers, and film students — the radically cheaper, mobile-first alternative to StudioBinder/Filmustage/Yamdu/Celtx ($30-100+/month). Built for Google's **All Things Agentic Hackathon** (submitted in the **Collaborative Partner** category).
+A script-to-schedule-to-call-sheet AI tool for indie filmmakers, YouTubers, and film students — the radically cheaper, mobile-first alternative to StudioBinder/Filmustage/Yamdu/Celtx ($30-100+/month). Built for Google's **All Things Agentic Hackathon** (submitted in the **Taskmaster** category).
 
 Upload a script. VantageTime breaks it into scenes, builds a shoot schedule, validates it against real-world constraints, researches your filming locations, generates a call sheet, drafts cast/crew outreach, collects real availability through actor-facing links, tracks who's actually locked in, and now also handles a drag-and-drop stripboard, a Day-Out-of-Days report, and payroll/time cards — all through a coordinated team of agents and deterministic tools, not a single prompt.
 

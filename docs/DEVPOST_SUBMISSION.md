@@ -6,9 +6,9 @@ Draft text for the **All Things Agentic Hackathon** submission form (allthingsag
 
 ## Category
 
-**Collaborative Partner**
+**Taskmaster**
 
-Rationale: Autopilot is the spine of VantageTime — it doesn't just execute a workflow silently, it leads the filmmaker step by step (Members → Shoot dates → Check locations → Notify location owners → Notify actors → Full plan → Tasks → Time cards), asks for exactly what's missing at each step (a location address, a missing actor email, an unset pay rate) with an inline fix, and adapts its own state as the filmmaker responds. The chat assistant (`/assistant`) layers a second collaborative surface on top: it reads the live project state and executes the same edit actions the UI itself uses, so it's a genuine second way to work the plan rather than a bolted-on Q&A box.
+Rationale: production coordination is a textbook messy, multi-step chore — break down a script by hand, guess at a shoot schedule, chase a dozen actors and location owners individually, build a call sheet at midnight, track payroll on top of all of it. VantageTime doesn't just talk about that chore, it does it: one upload triggers a real Google ADK pipeline that breaks down the script, researches every location via live web search, builds and validates a shoot schedule against real conflicts, generates a call sheet, and sends the right information to the right people — draft outreach to cast and crew, magic links for location owners and actors to confirm real dates, notifications when a location needs review. Autopilot then proves the heavy lifting is actually done by surfacing exactly what's still open (a missing email, an unconfirmed date, an unset pay rate) until the whole production is genuinely locked in — not just a chat transcript describing what a producer *could* do.
 
 ---
 
@@ -34,7 +34,7 @@ Spin-up instructions are in the repo's `README.md` (local dev) and `README.md`'s
 
 VantageTime turns a screenplay PDF into a running production: a scene breakdown, a validated shoot schedule, real location research, a call sheet, cast/crew outreach, and a full availability-confirmation loop — then keeps going into a drag-and-drop stripboard, a Day-Out-of-Days report, and payroll/time cards. It targets the filmmaker StudioBinder/Filmustage/Yamdu/Celtx don't: a solo indie filmmaker, a two-person crew, a film-school short, or a YouTube narrative shoot who needs the same coordination a line producer provides but has neither the budget nor the time for enterprise production software.
 
-Rather than nine disconnected tabs, **Autopilot** is the guided spine of the product: one step-by-step flow that walks the filmmaker through the whole production in order, tells them exactly what's blocking the next step, and lets them fix it inline — add a missing email, correct a location address, set a pay rate — without leaving the flow.
+**Autopilot** is the proof-of-completion layer: one view that tracks the whole production end to end (Members → Shoot dates → Check locations → Notify location owners → Notify actors → Full plan → Tasks → Time cards) and won't call a step done until the real-world action behind it has actually happened — an email actually sent, a location owner actually notified, a pay rate actually set — with an inline fix for whatever's still open.
 
 ### How it works
 
