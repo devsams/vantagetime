@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import StageHeader from "./StageHeader";
 import { Breakdown, Project } from "@/lib/types";
 
@@ -6,12 +7,18 @@ export default function BreakdownSection({
   sourceDocument,
   onViewSourceDocument,
   onDownloadSourceDocument,
+  onReuploadScript,
+  loading,
 }: {
   breakdown: Breakdown;
   sourceDocument?: Project["sourceDocument"];
   onViewSourceDocument?: () => void;
   onDownloadSourceDocument?: () => void;
+  onReuploadScript?: (file: File) => void;
+  loading?: boolean;
 }) {
+  const reuploadRef = useRef<HTMLInputElement>(null);
+
   return (
     <div>
       <StageHeader
@@ -39,6 +46,29 @@ export default function BreakdownSection({
                   className="tracked rounded-full border border-edge px-3 py-1.5 text-xs text-dim uppercase transition hover:text-ink"
                 >
                   Download
+                </button>
+              </>
+            )}
+            {onReuploadScript && (
+              <>
+                <input
+                  ref={reuploadRef}
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) onReuploadScript(file);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  onClick={() => reuploadRef.current?.click()}
+                  disabled={loading}
+                  title="Upload a revised or expanded draft — re-runs the breakdown, schedule, call sheets, and outreach against it. Scenes may regroup into different shoot days."
+                  className="tracked rounded-full border border-edge px-3 py-1.5 text-xs text-dim uppercase transition hover:text-ink disabled:opacity-50"
+                >
+                  {loading ? "Working..." : "Upload revised script"}
                 </button>
               </>
             )}

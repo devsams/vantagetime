@@ -526,6 +526,41 @@ export default function Home() {
     return result;
   }
 
+  /** Shared by both the initial script upload and the "upload revised
+   * script" re-upload: someone attaches production data (a cast list,
+   * call sheet, etc.) at a "script" entry point by mistake. Rather than
+   * leaving them with a fake/empty breakdown, auto-redirect the SAME
+   * file through the roster extraction path and turn this project into
+   * a roster-started one, so the mistake self-corrects instead of
+   * requiring a manual re-upload — this can happen live, mid-demo, and
+   * should recover on its own. Returns true if a redirect happened. */
+  async function redirectIfProductionData(
+    project: Project,
+    file: File,
+    result: Awaited<ReturnType<typeof submitToPipeline>>
+  ): Promise<boolean> {
+    if (!result?.ok || !result.breakdown?.looks_like_production_data) return false;
+    setLoading(true);
+    try {
+      const rosterResult = await extractRosterFromDocument(project.sessionId, file);
+      const redirected = applyRosterImport(project, rosterResult);
+      updateProject(project.id, redirected);
+      setError(
+        "That looked like production data, not a script — automatically imported it as a roster instead " +
+          `(${rosterResult.people.length} people, ${rosterResult.locations.length} location(s)). ` +
+          "Double-check before sending outreach."
+      );
+    } catch (e) {
+      setError(
+        "That looked like production data, not a script, but the automatic re-import failed " +
+          `(${e instanceof Error ? e.message : "unknown error"}) — try uploading it again via ` +
+          "\"I have production data\" instead."
+      );
+    }
+    setLoading(false);
+    return true;
+  }
+
   async function handleFileUpload(file: File) {
     if (loading) return;
     const data = await fileToBase64(file);
@@ -552,40 +587,53 @@ export default function Home() {
       { inlineData: { displayName: file.name, data, mimeType: "application/pdf" } },
     ]);
 
-    // The exact mistake this guards against: someone uploads production
-    // data (a cast list, call sheet, etc.) through this "I have a
-    // script" entry point instead of "I have production data". Rather
-    // than leaving them with a fake/empty breakdown, auto-redirect the
-    // SAME file through the roster extraction path and turn this project
-    // into a roster-started one, so the mistake self-corrects instead of
-    // requiring a manual re-upload — this can happen live, mid-demo, and
-    // should recover on its own.
-    if (result?.ok && result.breakdown?.looks_like_production_data) {
-      setLoading(true);
-      try {
-        const rosterResult = await extractRosterFromDocument(project.sessionId, file);
-        const redirected = applyRosterImport(project, rosterResult);
-        updateProject(project.id, redirected);
-        setError(
-          "That looked like production data, not a script — automatically imported it as a roster instead " +
-            `(${rosterResult.people.length} people, ${rosterResult.locations.length} location(s)). ` +
-            "Double-check before sending outreach."
-        );
-      } catch (e) {
-        setError(
-          "That looked like production data, not a script, but the automatic re-import failed " +
-            `(${e instanceof Error ? e.message : "unknown error"}) — try uploading it again via ` +
-            "\"I have production data\" instead."
-        );
-      }
-      setLoading(false);
-    }
+    await redirectIfProductionData(project, file, result);
 
     // Land on Autopilot once the breakdown is in, not Call Sheet — this is
     // the one moment the checklist of what's missing (cast emails, location
     // contacts, blocked research) is actually useful to see immediately,
     // rather than making the user go find the tab themselves.
     setActiveStage("autopilot");
+  }
+
+  /** Re-uploading a revised/expanded draft on an EXISTING project —
+   * distinct from handleFileUpload, which always creates a new project.
+   * Replaces the stored source document and re-runs the whole
+   * SequentialAgent pipeline (Breakdown -> Location Research ->
+   * Scheduling -> Call Sheet -> Availability) against the new PDF, so a
+   * page-count or scene change naturally regroups shoot days rather
+   * than leaving the old schedule stale. */
+  async function handleReuploadScript(file: File) {
+    if (!activeProject || loading) return;
+    let project = activeProject;
+    const data = await fileToBase64(file);
+    if (shouldStoreDocument(file)) {
+      const sourceDocument = {
+        name: file.name,
+        mimeType: file.type || "application/pdf",
+        dataUrl: toDataUrl(file.type || "application/pdf", data),
+      };
+      project = { ...project, sourceDocument };
+      updateProject(project.id, { sourceDocument });
+      // Same one-time full-document push as the initial upload path (see
+      // handleFileUpload) — the replaced document needs to reach the
+      // backend once with its full dataUrl before the generic sync
+      // effect starts stripping it out of routine saves again.
+      upsertProjectRemote(project).catch(() => {});
+    }
+
+    const result = await submitToPipeline(project, [
+      {
+        text:
+          "A revised script has been uploaded, replacing the previous draft — re-read it fully, produce a " +
+          "fresh breakdown, and rebuild the validated shoot schedule from scratch (scenes may regroup into " +
+          "different shoot days than before). Describe what changed vs. the previous version in " +
+          '"updated_this_turn".',
+      },
+      { inlineData: { displayName: file.name, data, mimeType: "application/pdf" } },
+    ]);
+
+    await redirectIfProductionData(project, file, result);
   }
 
   /** The alternate entry point: no script, just existing production
@@ -886,6 +934,8 @@ export default function Home() {
                 sourceDocument={activeProject.sourceDocument}
                 onViewSourceDocument={handleViewSourceDocument}
                 onDownloadSourceDocument={handleDownloadSourceDocument}
+                onReuploadScript={handleReuploadScript}
+                loading={loading}
               />
             ) : (
               <p className="text-sm text-faint">No breakdown yet.</p>
