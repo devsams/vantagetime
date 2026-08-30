@@ -60,6 +60,19 @@ Run `gcloud auth application-default login` once locally if you haven't for this
 
 ## Deploy to Cloud Run
 
+One-time project setup — do this before the first deploy, or the backend
+will build and deploy successfully but then 500/503 on its first real
+request (confirmed live: `google.api_core.exceptions.PermissionDenied:
+Cloud Firestore API has not been used in project ... or it is disabled`):
+
+```bash
+gcloud services enable firestore.googleapis.com --project=<your-project-id>
+gcloud firestore databases list --project=<your-project-id>
+# If that lists 0 items, create one (Native mode, required — Datastore
+# mode isn't compatible with this app's google-cloud-firestore usage):
+gcloud firestore databases create --project=<your-project-id> --location=us-central1 --type=firestore-native
+```
+
 ```bash
 # Backend
 cd backend
@@ -67,7 +80,7 @@ gcloud run deploy vantagetime-backend \
   --source . \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI=True,GOOGLE_CLOUD_PROJECT=<your-project-id>,GOOGLE_CLOUD_LOCATION=us-central1,PARALLEL_API_KEY=<key> \
+  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI=True,GOOGLE_CLOUD_PROJECT=<your-project-id>,GOOGLE_CLOUD_LOCATION=us-central1,PARALLEL_API_KEY=<key>,ALLOWED_ORIGINS=<your-frontend-url-once-deployed> \
   --min-instances 1   # keeps in-memory magic-link/outreach state alive across requests — see note below
 
 # Frontend (pass the backend's deployed URL in at build time)
@@ -79,7 +92,27 @@ gcloud run deploy vantagetime-frontend \
   --set-build-env-vars NEXT_PUBLIC_API_URL=https://<vantagetime-backend-url>
 ```
 
-The deploying service account needs Firestore and Cloud Storage access in `<your-project-id>` (`roles/datastore.user`, `roles/storage.objectAdmin`), and Firestore must be enabled in Native mode for that project.
+Deploy order matters here: the backend needs the frontend's URL for
+`ALLOWED_ORIGINS` (server.py's CORS config defaults to localhost-only —
+confirmed live: every real request from a deployed frontend gets a
+blanket 403 without this), but the frontend needs the backend's URL for
+`NEXT_PUBLIC_API_URL`. Easiest path is backend first without
+`ALLOWED_ORIGINS`, deploy the frontend with the backend's URL, then
+redeploy the backend once more with `ALLOWED_ORIGINS` set to the
+frontend's real URL.
+
+`NEXT_PUBLIC_API_URL` is inlined into the frontend's JS bundle at build
+time, not read at runtime — and `gcloud run deploy --source`'s
+`--set-build-env-vars` does **not** reliably pass through to the
+Dockerfile's `ARG` the way `docker build --build-arg` would (confirmed
+live — it silently built with an empty string instead). The frontend's
+`Dockerfile` now defaults that `ARG` to the real deployed backend URL as
+a safety net, and `lib/api.ts` falls back with `||` (not `??`, which
+doesn't catch an empty string) — so a plain redeploy works even if
+`--set-build-env-vars` doesn't take effect, but pass it explicitly
+anyway for a different backend URL.
+
+The deploying service account needs Firestore and Cloud Storage access in `<your-project-id>` (`roles/datastore.user`, `roles/storage.objectAdmin`).
 
 ## Status
 
