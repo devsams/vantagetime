@@ -232,7 +232,7 @@ export default function TimeCardsSection({
 
           {shootDays.length === 0 ? (
             <div className="rounded-md border-l-2 border-accent/40 bg-accent/10 px-4 py-3 text-sm text-dim">
-              No shoot days yet — set a shoot window in the Dates tab before logging time cards.
+              No shoot days yet — set a shoot window in the Production Plan tab before logging time cards.
             </div>
           ) : (
             <div className="space-y-6">

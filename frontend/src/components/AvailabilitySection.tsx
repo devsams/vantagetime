@@ -418,7 +418,7 @@ export default function AvailabilitySection({
       <StageHeader
         index={8}
         title="Dashboard"
-        description="The production home screen — who's responded and who's still pending, then the final report: real confirmed dates and names, day by day and person by person. To send or resend outreach, use the Dates tab's Roster sub-tab."
+        description="The production home screen — who's responded and who's still pending, then the final report: real confirmed dates and names, day by day and person by person. To send or resend outreach, use the Production Plan tab's Roster sub-tab."
         action={
           <div className="no-print flex items-center gap-2">
             <button
@@ -533,7 +533,7 @@ export default function AvailabilitySection({
       <div className="mb-6 rounded-xl border border-edge bg-panel p-4">
         <div className="tracked mb-2 text-[10px] text-faint uppercase">Shoot Window</div>
         {!dateWindow ? (
-          <p className="text-xs text-faint">No candidate window set yet — see the Dates tab.</p>
+          <p className="text-xs text-faint">No candidate window set yet — see the Production Plan tab.</p>
         ) : dateWindow.locked_block ? (
           <p className="text-sm text-accent">Locked: {blockLabel(dateWindow.locked_block)}</p>
         ) : (

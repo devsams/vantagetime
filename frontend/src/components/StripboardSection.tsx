@@ -17,7 +17,7 @@ interface DragPayload {
  * that day's total pages, locations, and cast hours immediately (see
  * lib/stripboard.ts) — a pure manual override of scene order/
  * assignment, no agent round trip. Embedded above the read-only
- * card/calendar view in the Dates tab's Scheduling sub-tab. */
+ * card/calendar view in the Production Plan tab's Scheduling sub-tab. */
 export default function StripboardSection({
   breakdown,
   schedule,

@@ -1,7 +1,10 @@
 // Trimmed from seven tabs down to four for a simpler top-level nav:
-// "Scheduling" and "Validator" are now folded into "Dates" (a scheduling
-// sub-tab, with validator pass/fail as an inline badge, not a separate
-// click-through). "Status" is folded into "Dashboard" (the former
+// "Scheduling" and "Validator" are now folded into "Production Plan" (a
+// scheduling sub-tab, with validator pass/fail as an inline badge, not a
+// separate click-through — internal StageKey stays "dates", only the
+// display label changed, since it also covers location research and
+// roster availability now, not just calendar dates). "Status" is folded
+// into "Dashboard" (the former
 // "Availability" tab, renamed — it already covered response tracking in
 // its Roster Detail table; the old Status tab's compact per-person
 // banner now lives there too). "Call Sheet" is the default tab a
@@ -21,7 +24,7 @@ export const STAGE_LABELS: Record<StageKey, string> = {
   autopilot: "Autopilot",
   breakdown: "Breakdown",
   members: "Members",
-  dates: "Dates",
+  dates: "Production Plan",
   callSheet: "Call Sheet",
   tasks: "Task Master",
   payroll: "Time Cards",

@@ -286,7 +286,7 @@ export default function DatesSection({
     <div>
       <StageHeader
         index={4}
-        title="Dates"
+        title="Production Plan"
         description="Top to bottom: set the real shoot window, see the day-by-day schedule it produces, check it against location research, send cast/crew/other outreach, then resolve whatever gets flagged."
       />
 

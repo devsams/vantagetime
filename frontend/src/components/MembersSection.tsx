@@ -65,7 +65,7 @@ export default function MembersSection({
       <StageHeader
         index={3}
         title="Members"
-        description="Add anyone to the roster in a couple seconds — just a name and a type. Fill in role, email, availability, and priority later from the Dates tab's Roster & Availability sub-tab."
+        description="Add anyone to the roster in a couple seconds — just a name and a type. Fill in role, email, availability, and priority later from the Production Plan tab's Roster & Availability sub-tab."
       />
 
       <div className="mb-8 rounded-xl border border-edge bg-panel p-4">

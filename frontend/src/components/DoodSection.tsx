@@ -3,7 +3,7 @@
 import { computeDood } from "@/lib/dood";
 import { Breakdown, Schedule } from "@/lib/types";
 
-/** Day-Out-Of-Days report — embedded inside the Dates tab as its own
+/** Day-Out-Of-Days report — embedded inside the Production Plan tab as its own
  * sub-tab, no header of its own (same convention as ScheduleSection).
  * One row per cast member, one column per shoot day: W = work day, H =
  * hold (between their first and last work day but not shooting that

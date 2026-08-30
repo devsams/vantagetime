@@ -356,7 +356,7 @@ export default function AutopilotSection({
                   onClick={() => onGoToStage("dates")}
                   className="tracked rounded-full border border-edge px-3 py-1.5 text-[10px] uppercase text-faint transition hover:text-accent"
                 >
-                  Full Dates tab →
+                  Full Production Plan tab →
                 </button>
               </div>
             </>
@@ -422,7 +422,7 @@ export default function AutopilotSection({
                 onClick={() => onGoToStage("dates")}
                 className="tracked mt-2 rounded-full border border-edge px-3 py-1.5 text-[10px] uppercase text-faint transition hover:text-accent"
               >
-                Full location editor in Dates →
+                Full location editor in Production Plan →
               </button>
             </>
           )}
