@@ -1,5 +1,12 @@
 # VantageTime — Build Plan
 
+> **Superseded note:** this doc reflects the original planning target
+> (Google Agentic Cinema). The actual submission is the **All Things
+> Agentic Hackathon** (allthingsagentichackathon.devpost.com), Taskmaster
+> category, deadline Aug 31, 2026 5:00pm PDT — see `README.md` and
+> `docs/DEVPOST_SUBMISSION.md` for the current, accurate submission
+> details. Kept here unedited below as the historical build log.
+
 Hackathon: Google Agentic Cinema (Parallel track), agentic-cinema.devpost.com
 Deadline: Sep 9, 2026, 2:00pm PDT (per official rules — see below)
 Today: Aug 18, 2026 (~3 weeks out)
