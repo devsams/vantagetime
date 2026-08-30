@@ -14,7 +14,7 @@ Rationale: production coordination is a textbook messy, multi-step chore — bre
 
 ## Project URL (hosted)
 
-`[FILL IN — Cloud Run frontend URL after deploy, e.g. https://vantagetime-frontend-xxxxx.us-central1.run.app]`
+`https://vantagetime-frontend-425496362782.us-central1.run.app`
 
 ## Code repository
 

@@ -17,7 +17,15 @@ import type {
   Schedule,
 } from "./types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// `||`, not `??` — a Docker ARG that's declared but never given a value
+// resolves to an empty string, not undefined/null, so `??` would silently
+// accept "" and every request would go to a relative path (the frontend's
+// own origin) instead of falling back. Confirmed live: this exact bug sent
+// /projects and /settings to the frontend's own 404 page on the first
+// Cloud Run deploy, because gcloud run deploy --source's
+// --set-build-env-vars doesn't actually pass through to a Dockerfile's ARG
+// the way --build-arg would.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const APP_NAME = "orchestrator";
 const USER_ID = "web_user";
 
