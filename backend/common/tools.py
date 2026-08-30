@@ -17,9 +17,10 @@ def search_location(objective: str, queries: list[str]) -> dict:
         objective: A one-sentence research brief (e.g. "Find film permit
             requirements and typical weather for exterior shoots in
             Austin, TX in October").
-        queries: 2-3 specific search queries a location scout would
+        queries: 3-5 specific search queries a location scout would
             actually type, each covering a different angle (permits,
-            weather, general logistics).
+            weather, general logistics, nearest hospital/emergency
+            contacts, and — for a public location — operating hours).
 
     Returns:
         A dict with a "results" list. Each item has "title", "url", and
@@ -123,7 +124,26 @@ def validate_schedule(schedule_days: list[dict], scenes: list[dict]) -> dict:
                     ),
                 }
             )
-        if len(locations) > 1:
+        if len(locations) >= 3:
+            # Hard rule, not just a heads-up: a small/no-budget crew with
+            # no production vehicle can't reliably company-move more than
+            # once in a day. The Scheduling Agent's own instruction
+            # already claims this is a "never" rule — this is what
+            # actually enforces it, same as every other real constraint
+            # here, instead of relying on the agent to police itself.
+            issues.append(
+                {
+                    "severity": "error",
+                    "day_number": day_number,
+                    "message": (
+                        f"Day {day_number} spans {len(locations)} locations "
+                        f"({', '.join(sorted(locations))}) — a shoot day "
+                        "should never cover 3 or more distinct locations. "
+                        "Split across more days."
+                    ),
+                }
+            )
+        elif len(locations) > 1:
             issues.append(
                 {
                     "severity": "warning",
