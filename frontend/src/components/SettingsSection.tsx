@@ -138,7 +138,7 @@ export default function SettingsSection({
               <button
                 onClick={() => onRemoveTeamMember(m.id)}
                 title="Remove"
-                className="justify-self-start text-sm text-faint transition hover:text-red-700 sm:justify-self-center"
+                className="justify-self-start text-sm text-faint transition hover:text-coral sm:justify-self-center"
               >
                 ×
               </button>
@@ -173,7 +173,7 @@ export default function SettingsSection({
         </div>
         <button
           onClick={onClearAllData}
-          className="tracked mt-5 rounded-full border border-red-500/40 px-4 py-2 text-xs text-red-700 uppercase transition hover:bg-red-500/10"
+          className="tracked mt-5 rounded-full border border-coral/40 px-4 py-2 text-xs text-coral uppercase transition hover:bg-coral/10"
         >
           Clear all local data
         </button>

@@ -187,7 +187,7 @@ export default function CallSheetSection({
           )}
 
           {day.location.hours_notes && (
-            <div className="mt-4 rounded-md border border-amber-900/20 bg-amber-900/5 px-4 py-3 text-xs text-black/80">
+            <div className="mt-4 rounded-md border border-amber/20 bg-amber/5 px-4 py-3 text-xs text-black/80">
               <span className="font-semibold">Hours: </span>
               <NoteBullets text={day.location.hours_notes} max={2} className="mt-0.5" />
             </div>
@@ -215,8 +215,8 @@ export default function CallSheetSection({
             productionInfo.safetyOfficerName ||
             productionInfo.safetyHotline ||
             productionInfo.medicName) && (
-            <div className="mt-4 rounded-md border border-red-900/20 bg-red-900/5 px-4 py-3 text-xs text-black/80">
-              <div className="tracked mb-1 text-[10px] uppercase text-red-900/60">
+            <div className="mt-4 rounded-md border border-coral/20 bg-coral/5 px-4 py-3 text-xs text-black/80">
+              <div className="tracked mb-1 text-[10px] uppercase text-coral/70">
                 Safety & Emergency
               </div>
               <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">

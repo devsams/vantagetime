@@ -50,7 +50,7 @@ const STATUS_LABEL: Record<StatusKey, string> = {
 };
 
 const STATUS_STYLE: Record<StatusKey, string> = {
-  unavailable: "border-red-500/50 bg-red-500/10 text-red-700",
+  unavailable: "border-coral/50 bg-coral/10 text-coral",
   pending: "border-edge bg-panel2 text-dim",
   awaiting_dates: "border-amber/50 bg-amber/10 text-amber",
   locked_in: "border-accent/50 bg-accent/15 text-accent",
@@ -149,7 +149,7 @@ interface PersonRow {
 
 const DAY_STATE_STYLE: Record<PersonDayState, string> = {
   confirmed: "border-mint/50 bg-mint/10 text-mint",
-  cancelled: "border-red-500/50 bg-red-500/10 text-red-700",
+  cancelled: "border-coral/50 bg-coral/10 text-coral",
   proposed: "border-blue/50 bg-blue/10 text-blue",
   pending: "border-edge bg-panel2 text-faint",
 };
@@ -468,7 +468,7 @@ export default function AvailabilitySection({
           </div>
         </div>
         <div className="rounded-xl border border-edge bg-panel p-4">
-          <div className={`text-2xl font-semibold ${totalCancelled > 0 ? "text-red-700" : "text-ink"}`}>
+          <div className={`text-2xl font-semibold ${totalCancelled > 0 ? "text-coral" : "text-ink"}`}>
             {totalCancelled}
           </div>
           <div className="tracked mt-1 text-[10px] text-faint uppercase">Flagged Unavailable</div>
@@ -596,7 +596,7 @@ export default function AvailabilitySection({
                         width: `${d.date ? confirmedPct : d.required > 0 ? (d.proposedNames.length / d.required) * 100 : 0}%`,
                       }}
                     />
-                    <div className="h-full bg-red-500/60" style={{ width: `${cancelledPct}%` }} />
+                    <div className="h-full bg-coral/60" style={{ width: `${cancelledPct}%` }} />
                   </div>
 
                   <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] sm:grid-cols-3">
@@ -615,7 +615,7 @@ export default function AvailabilitySection({
                       </p>
                     </div>
                     <div>
-                      <span className="tracked text-[9px] text-red-700 uppercase">
+                      <span className="tracked text-[9px] text-coral uppercase">
                         Unavailable ({d.cancelledNames.length})
                       </span>
                       <p className="mt-0.5 text-dim">{d.cancelledNames.join(", ") || "—"}</p>
@@ -664,7 +664,7 @@ export default function AvailabilitySection({
                       {p.email ? (
                         <span className="text-dim">{p.email}</span>
                       ) : (
-                        <span className="text-red-700">No email</span>
+                        <span className="text-coral">No email</span>
                       )}
                       {p.hasLink && <div className="tracked mt-0.5 text-accent uppercase">Link sent</div>}
                     </td>

@@ -87,7 +87,7 @@ export default function BreakdownSection({
                     {scene.flags.map((f) => (
                       <span
                         key={f}
-                        className="tracked rounded-full bg-red-500/15 px-2 py-0.5 text-[9px] uppercase text-red-700"
+                        className="tracked rounded-full bg-coral/15 px-2 py-0.5 text-[9px] uppercase text-coral"
                       >
                         {f.replace("_", " ")}
                       </span>

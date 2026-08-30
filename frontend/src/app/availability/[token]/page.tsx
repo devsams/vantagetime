@@ -77,15 +77,15 @@ function ProposeForm({
       </button>
 
       {distinct.size !== filled.length && filled.length > 0 && (
-        <p className="mt-2 text-[11px] text-red-600">Each date should be different.</p>
+        <p className="mt-2 text-[11px] text-coral">Each date should be different.</p>
       )}
-      {error && <p className="mt-2 text-[11px] text-red-600">{error}</p>}
+      {error && <p className="mt-2 text-[11px] text-coral">{error}</p>}
 
       <div className="mt-3 flex items-center gap-2">
         <button
           onClick={handleSubmit}
           disabled={!canSubmit || submitting}
-          className="rounded-full bg-[#c2570a] px-4 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-40"
+          className="rounded-full bg-[#000000] px-4 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-40"
         >
           {submitting ? "Sending..." : submitLabel(filled.length)}
         </button>
@@ -181,7 +181,7 @@ export default function AvailabilityPage({ params }: { params: Promise<{ token: 
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f4f2ea] text-sm text-black/60">
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f5f3] text-sm text-black/60">
         Loading...
       </div>
     );
@@ -189,7 +189,7 @@ export default function AvailabilityPage({ params }: { params: Promise<{ token: 
 
   if (!view) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f4f2ea] px-6 text-center text-sm text-black/60">
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f5f3] px-6 text-center text-sm text-black/60">
         This link isn&apos;t valid, or the schedule hasn&apos;t been shared yet.
       </div>
     );
@@ -200,7 +200,7 @@ export default function AvailabilityPage({ params }: { params: Promise<{ token: 
   const dated = view.days.filter((d) => d.date);
 
   return (
-    <div className="min-h-screen bg-[#f4f2ea] px-6 py-16 text-[#1a1a16]">
+    <div className="min-h-screen bg-[#f5f5f3] px-6 py-16 text-[#000000]">
       <div className="mx-auto max-w-md rounded-2xl bg-white p-8 shadow-sm">
         <div className="text-xs uppercase tracking-wide text-black/50">{view.project_name}</div>
         <h1 className="mt-1 text-2xl font-bold">Hi {firstName},</h1>
@@ -211,11 +211,11 @@ export default function AvailabilityPage({ params }: { params: Promise<{ token: 
         </p>
 
         {view.window?.locked_block && (
-          <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4">
-            <div className="text-xs font-medium uppercase tracking-wide text-green-700">
+          <div className="mt-6 rounded-lg border border-mint/40 bg-mint/10 p-4">
+            <div className="text-xs font-medium uppercase tracking-wide text-ink">
               Shoot dates locked
             </div>
-            <p className="mt-1 text-sm text-green-800">{blockLabel(view.window.locked_block)}</p>
+            <p className="mt-1 text-sm text-ink">{blockLabel(view.window.locked_block)}</p>
           </div>
         )}
 
@@ -240,7 +240,7 @@ export default function AvailabilityPage({ params }: { params: Promise<{ token: 
                 </button>
               ))}
             </div>
-            {lockError && <p className="mt-2 text-[11px] text-red-600">{lockError}</p>}
+            {lockError && <p className="mt-2 text-[11px] text-coral">{lockError}</p>}
           </div>
         )}
 
@@ -277,12 +277,12 @@ export default function AvailabilityPage({ params }: { params: Promise<{ token: 
                     </button>
                   )
                 ) : d.cancelled ? (
-                  <span className="shrink-0 rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">
+                  <span className="shrink-0 rounded-full bg-coral/15 px-3 py-1 text-xs font-medium text-coral">
                     Marked unavailable
                   </span>
                 ) : d.confirmed ? (
                   <div className="flex shrink-0 flex-col items-end gap-1">
-                    <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+                    <span className="rounded-full bg-mint/15 px-3 py-1 text-xs font-medium text-ink">
                       Confirmed ✓
                     </span>
                     <button
@@ -297,7 +297,7 @@ export default function AvailabilityPage({ params }: { params: Promise<{ token: 
                     <button
                       onClick={() => handleConfirm(d.day_number)}
                       disabled={confirming === d.day_number}
-                      className="rounded-full bg-[#c2570a] px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                      className="rounded-full bg-[#000000] px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-50"
                     >
                       {confirming === d.day_number ? "Sending..." : "I can make it"}
                     </button>

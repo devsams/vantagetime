@@ -336,7 +336,7 @@ export default function TimeCardsSection({
                                 <button
                                   onClick={() => removeCard(tc.id)}
                                   title="Delete time card"
-                                  className="text-sm text-faint transition hover:text-red-700"
+                                  className="text-sm text-faint transition hover:text-coral"
                                 >
                                   ×
                                 </button>

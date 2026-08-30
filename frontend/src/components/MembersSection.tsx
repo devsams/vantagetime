@@ -119,7 +119,7 @@ export default function MembersSection({
                   <button
                     onClick={() => onRemoveCastMember(c.name)}
                     title="Remove"
-                    className="shrink-0 text-sm text-faint transition hover:text-red-700"
+                    className="shrink-0 text-sm text-faint transition hover:text-coral"
                   >
                     ×
                   </button>
@@ -166,7 +166,7 @@ export default function MembersSection({
                   <button
                     onClick={() => onRemoveCrewMember(c.name)}
                     title="Remove"
-                    className="shrink-0 text-sm text-faint transition hover:text-red-700"
+                    className="shrink-0 text-sm text-faint transition hover:text-coral"
                   >
                     ×
                   </button>
@@ -213,7 +213,7 @@ export default function MembersSection({
                   <button
                     onClick={() => removeOtherItem(o.id)}
                     title="Remove"
-                    className="shrink-0 text-sm text-faint transition hover:text-red-700"
+                    className="shrink-0 text-sm text-faint transition hover:text-coral"
                   >
                     ×
                   </button>

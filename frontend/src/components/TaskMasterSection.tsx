@@ -279,7 +279,7 @@ export default function TaskMasterSection({
                     key={t.id}
                     className={`rounded-xl border-l-4 border border-edge bg-panel p-3 ${
                       t.priority === "high"
-                        ? "border-l-red-500"
+                        ? "border-l-coral"
                         : t.priority === "medium"
                           ? "border-l-amber"
                           : "border-l-edge"
@@ -295,7 +295,7 @@ export default function TaskMasterSection({
                       <button
                         onClick={() => removeTask(t.id)}
                         title="Delete task"
-                        className="shrink-0 text-sm text-faint transition hover:text-red-700"
+                        className="shrink-0 text-sm text-faint transition hover:text-coral"
                       >
                         ×
                       </button>

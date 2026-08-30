@@ -1,41 +1,41 @@
 @import "tailwindcss";
 
-/* MotherDuck-accurate palette. Checked against the live site (not just
-   its meta theme-color): a gold/yellow announcement bar, a vivid orange
-   duck-bill accent, a bright sky-blue used for primary CTAs and big
-   section fills, near-black ink and borders, and pastel coral/mint tags
-   scattered through their architecture diagrams for variety. The first
-   pass at this theme used only one muted orange and was correctly
-   called out as "not colorful" — this version keeps four distinct hues
-   (orange, blue, gold, plus coral/mint for tags) instead of one.
+/* Film-reel palette: true black and white, no hue anywhere. --ink is
+   pure black (the app's font color, per an explicit request) on a
+   near-white/light-grey ground, like a work print or a contact sheet.
+   The four former "accent" hues (amber/blue/coral/mint) are kept as
+   named tokens — every component still reads them through the same
+   semantic classes (text-amber, bg-mint/10, etc.) — but each is now a
+   distinct shade of grey instead of a color, spread across the
+   grayscale range so status badges stay visually distinct by *weight*
+   (how dark/heavy) instead of by hue: coral (danger/conflict) is
+   heaviest/near-black, amber (attention/warning) next, blue
+   (info/primary) mid-grey, mint (positive/done) lightest — darker still
+   reads as "more urgent," same as the old red/orange/blue/green did.
    Every component reads these through the semantic classes below
    (bg-panel, text-ink, border-edge, etc.), never a raw Tailwind color,
    so this file is the single place a theme change like this happens. */
 :root {
-  --bg: #f7f1e2;
-  --bg2: #efe6cf;
+  --bg: #f5f5f3;
+  --bg2: #e9e9e6;
   --panel: #ffffff;
-  --panel2: #f2ebd8;
-  --edge: #ded2ae;
-  --ink: #17130d;
-  --dim: #5c5847;
-  --faint: #948f78;
-  /* MotherDuck's brand orange (their meta theme-color is #ff9538) reads
-     great as a badge/button FILL, but is too light to use as small text
-     on a cream/white background — so --accent is a punchier, more
-     saturated orange-red that still reads unmistakably "MotherDuck,"
-     works as text/borders on light panels, AND (paired with a light
-     --accent-ink) still works as a solid button fill. */
-  --accent: #d9640a;
-  --accent-ink: #fff8ef;
-  /* Their announcement-bar gold. */
-  --amber: #a86a00;
-  /* Their big sky-blue CTA/section color. */
-  --blue: #1c7fb8;
-  /* Pastel tag colors from their architecture diagrams, darkened for
-     text/border use. */
-  --coral: #d9483a;
-  --mint: #0e8f72;
+  --panel2: #ececea;
+  --edge: #c7c7c3;
+  --ink: #000000;
+  --dim: #444444;
+  --faint: #8a8a86;
+  /* Buttons/CTAs and the brand mark — solid black fill, white text, like
+     a clapperboard or a title card. */
+  --accent: #000000;
+  --accent-ink: #ffffff;
+  /* Attention/warning (AttentionBar, "needs review" states). */
+  --amber: #2b2b2b;
+  /* Primary/info highlights, links. */
+  --blue: #4d4d4d;
+  /* Danger/conflict — the heaviest, most alarming shade. */
+  --coral: #111111;
+  /* Positive/done — the lightest of the four, recedes once resolved. */
+  --mint: #7a7a7a;
 }
 
 @theme inline {
@@ -59,12 +59,13 @@
 }
 
 body {
-  /* Two soft color washes standing in for stage-light spill — poster
-     depth without touching layout. Kept subtle (low alpha) so body text
-     stays fully readable on top. */
+  /* Two soft black washes standing in for a projector's corner falloff —
+     poster depth without touching layout, and without introducing any
+     hue. Kept subtle (low alpha) so body text stays fully readable on
+     top. */
   background:
-    radial-gradient(1100px 560px at 12% -12%, rgba(217, 100, 10, 0.14), transparent 60%),
-    radial-gradient(900px 520px at 105% 0%, rgba(28, 127, 184, 0.11), transparent 55%),
+    radial-gradient(1100px 560px at 12% -12%, rgba(0, 0, 0, 0.07), transparent 60%),
+    radial-gradient(900px 520px at 105% 0%, rgba(0, 0, 0, 0.05), transparent 55%),
     var(--bg);
   background-attachment: fixed;
   color: var(--ink);
@@ -82,31 +83,32 @@ body {
    any component's structure or spacing — every one of these is a class
    swapped onto an element that already existed. */
 
-/* Gradient-clipped hero titles (project names, big Anton headlines) —
-   movie-poster-title treatment instead of flat ink. */
+/* Gradient-clipped hero titles (project names, big Anton headlines) — a
+   subtle black-to-grey-to-black chrome sheen, like an embossed title
+   card on a film canister, instead of flat ink. Still zero hue. */
 .title-gradient {
-  background: linear-gradient(115deg, var(--ink) 0%, var(--accent) 55%, var(--coral) 100%);
+  background: linear-gradient(115deg, #000000 0%, #4d4d4d 50%, #000000 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
-/* Primary CTA buttons — gradient fill + a soft "glow" shadow instead of
-   a flat color fill, so the one action per screen that matters most
-   reads as a poster call-to-action rather than a form button. */
+/* Primary CTA buttons — solid black fill + a soft black shadow instead
+   of a color glow, so the one action per screen that matters most still
+   reads as a poster call-to-action rather than a flat form button. */
 .btn-poster {
-  background: linear-gradient(135deg, var(--accent), var(--coral));
+  background: linear-gradient(135deg, #000000, #262626);
   color: var(--accent-ink);
-  box-shadow: 0 10px 26px -10px rgba(217, 100, 10, 0.6);
+  box-shadow: 0 10px 26px -10px rgba(0, 0, 0, 0.55);
   transition: filter 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 .btn-poster:hover:not(:disabled) {
-  filter: brightness(1.06);
-  box-shadow: 0 14px 30px -8px rgba(217, 100, 10, 0.7);
+  filter: brightness(1.3);
+  box-shadow: 0 14px 30px -8px rgba(0, 0, 0, 0.65);
   transform: translateY(-1px);
 }
 .btn-poster:disabled {
-  filter: grayscale(0.4);
+  filter: grayscale(0.4) opacity(0.6);
   box-shadow: none;
 }
 

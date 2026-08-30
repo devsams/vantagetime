@@ -411,7 +411,7 @@ export default function AutopilotSection({
               {conflicts.length > 0 && (
                 <div className="mt-1 space-y-1">
                   {conflicts.map((c, i) => (
-                    <p key={i} className="text-xs text-red-700">
+                    <p key={i} className="text-xs text-coral">
                       ⚠ {c}
                     </p>
                   ))}
@@ -482,7 +482,7 @@ export default function AutopilotSection({
                           >
                             {sendingLocation === loc ? "Sending..." : status?.sent ? "Resend to " + to : "Send to " + to}
                           </button>
-                          {status?.lastError && <span className="text-[10px] text-red-700">{status.lastError}</span>}
+                          {status?.lastError && <span className="text-[10px] text-coral">{status.lastError}</span>}
                         </div>
                       </>
                     )}

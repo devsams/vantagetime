@@ -769,7 +769,7 @@ export default function Home() {
             </p>
           )}
           {error && (
-            <p className="mb-6 rounded-md border-l-2 border-red-500/60 bg-red-500/10 px-3 py-2 text-xs text-red-700">
+            <p className="mb-6 rounded-md border-l-2 border-coral/60 bg-coral/10 px-3 py-2 text-xs text-coral">
               {error}
             </p>
           )}
@@ -1000,7 +1000,7 @@ export default function Home() {
         <div className="tracked mb-4 text-xs text-dim uppercase">Your Projects</div>
 
         {error && (
-          <p className="mb-4 rounded-md border-l-2 border-red-500/60 bg-red-500/10 px-3 py-2 text-xs text-red-700">
+          <p className="mb-4 rounded-md border-l-2 border-coral/60 bg-coral/10 px-3 py-2 text-xs text-coral">
             {error}
           </p>
         )}

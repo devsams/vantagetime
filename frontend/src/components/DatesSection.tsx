@@ -303,7 +303,7 @@ export default function DatesSection({
           >
             {t.label}
             {t.key === "scheduling" && scheduleIssue && (
-              <span className="h-1.5 w-1.5 rounded-full bg-red-500" title="Schedule has blocking issues" />
+              <span className="h-1.5 w-1.5 rounded-full bg-coral" title="Schedule has blocking issues" />
             )}
           </button>
         ))}
@@ -376,7 +376,7 @@ export default function DatesSection({
                       key={d}
                       onClick={() => removeBlackoutDate(d)}
                       title="Remove"
-                      className="tracked rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[9px] uppercase text-red-700 transition hover:bg-red-500/20"
+                      className="tracked rounded-full border border-coral/30 bg-coral/10 px-2 py-0.5 text-[9px] uppercase text-coral transition hover:bg-coral/20"
                     >
                       {d} ×
                     </button>
@@ -404,7 +404,7 @@ export default function DatesSection({
           {!windowLoading && dateWindow && (
             <div className="mb-6 rounded-xl border border-edge bg-panel p-4">
               {dateWindow.error ? (
-                <p className="text-xs text-red-700">{dateWindow.error}</p>
+                <p className="text-xs text-coral">{dateWindow.error}</p>
               ) : dateWindow.locked_block ? (
                 <div>
                   <div className="tracked text-[10px] text-accent uppercase">Locked</div>
@@ -412,9 +412,9 @@ export default function DatesSection({
                     {blockLabel(dateWindow.locked_block)}
                   </p>
                   {lockedConflicts.length > 0 && (
-                    <div className="mt-2 space-y-1 rounded-md border-l-2 border-red-500/60 bg-red-500/10 px-3 py-2">
+                    <div className="mt-2 space-y-1 rounded-md border-l-2 border-coral/60 bg-coral/10 px-3 py-2">
                       {lockedConflicts.map((msg, i) => (
-                        <p key={i} className="text-[11px] text-red-700">
+                        <p key={i} className="text-[11px] text-coral">
                           ⚠ {msg}
                         </p>
                       ))}
@@ -521,7 +521,7 @@ export default function DatesSection({
           <div
             className={`mb-6 flex items-center justify-between rounded-xl border p-4 text-sm ${
               scheduleIssue
-                ? "border-red-500/40 bg-red-500/10 text-red-700"
+                ? "border-coral/40 bg-coral/10 text-coral"
                 : "border-accent/40 bg-accent/5 text-accent"
             }`}
           >
@@ -577,7 +577,7 @@ export default function DatesSection({
                     </h3>
                     <span
                       className={`tracked shrink-0 rounded-full px-2 py-0.5 text-[9px] uppercase ${
-                        r.research_blocked ? "bg-red-500/15 text-red-700" : "bg-panel2 text-faint"
+                        r.research_blocked ? "bg-coral/15 text-coral" : "bg-panel2 text-faint"
                       }`}
                     >
                       {r.research_blocked ? "Blocked" : intExt ?? "—"}

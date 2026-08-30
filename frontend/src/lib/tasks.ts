@@ -33,7 +33,7 @@ export const TASK_PRIORITY_LABEL: Record<TaskPriority, string> = {
 };
 
 export const TASK_PRIORITY_STYLE: Record<TaskPriority, string> = {
-  high: "border-red-500/50 bg-red-500/10 text-red-700",
+  high: "border-coral/50 bg-coral/10 text-coral",
   medium: "border-amber/50 bg-amber/10 text-amber",
   low: "border-edge bg-panel2 text-faint",
 };

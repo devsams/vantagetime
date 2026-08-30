@@ -266,7 +266,7 @@ export default function ChatPanel({
               </div>
             )}
             {error && (
-              <p className="mt-3 rounded-md border-l-2 border-red-500/60 bg-red-500/10 px-2 py-1 text-[11px] text-red-700">
+              <p className="mt-3 rounded-md border-l-2 border-coral/60 bg-coral/10 px-2 py-1 text-[11px] text-coral">
                 {error}
               </p>
             )}
