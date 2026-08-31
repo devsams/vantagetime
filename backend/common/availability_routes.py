@@ -63,9 +63,15 @@ def _record_confirmation(session_id: str, actor_name: str, day_number: int) -> N
     """Adds a positive confirmation only if this actor hasn't already
     confirmed this exact day."""
     existing = _CONFIRMATIONS.setdefault(session_id, [])
-    if any(c["actor_name"] == actor_name and c["day_number"] == day_number for c in existing):
-        return
-    existing.append({"actor_name": actor_name, "day_number": day_number, "confirmed_at": time.time()})
+    if not any(c["actor_name"] == actor_name and c["day_number"] == day_number for c in existing):
+        existing.append({"actor_name": actor_name, "day_number": day_number, "confirmed_at": time.time()})
+    # Mirrors _record_cancellation: reconfirming a day they'd previously
+    # marked unavailable should actually flip the status back — an actor
+    # changing their mind again always wins over the stale cancellation.
+    cancellations = _CANCELLATIONS.get(session_id, [])
+    cancellations[:] = [
+        c for c in cancellations if not (c["actor_name"] == actor_name and c["day_number"] == day_number)
+    ]
 
 
 def _priority_rank(session_id: str) -> list[str]:

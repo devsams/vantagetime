@@ -170,7 +170,7 @@ export default function AvailabilityPage({ params }: { params: Promise<{ token: 
           ? {
               ...prev,
               days: prev.days.map((d) =>
-                d.day_number === dayNumber ? { ...d, confirmed: true } : d
+                d.day_number === dayNumber ? { ...d, confirmed: true, cancelled: false } : d
               ),
             }
           : prev
@@ -277,9 +277,18 @@ export default function AvailabilityPage({ params }: { params: Promise<{ token: 
                     </button>
                   )
                 ) : d.cancelled ? (
-                  <span className="shrink-0 rounded-full bg-coral/15 px-3 py-1 text-xs font-medium text-coral">
-                    Marked unavailable
-                  </span>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span className="rounded-full bg-coral/15 px-3 py-1 text-xs font-medium text-coral">
+                      Marked unavailable
+                    </span>
+                    <button
+                      onClick={() => handleConfirm(d.day_number)}
+                      disabled={confirming === d.day_number}
+                      className="text-[10px] text-black/40 underline underline-offset-2 hover:text-black/60 disabled:opacity-50"
+                    >
+                      {confirming === d.day_number ? "Sending..." : "Actually, I can make it"}
+                    </button>
+                  </div>
                 ) : d.confirmed ? (
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <span className="rounded-full bg-mint/15 px-3 py-1 text-xs font-medium text-ink">
