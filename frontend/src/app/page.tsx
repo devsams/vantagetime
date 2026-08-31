@@ -27,6 +27,7 @@ import {
   upsertProjectRemote,
 } from "@/lib/api";
 import { emptyProductionInfo } from "@/lib/callSheetExtras";
+import { emptyAvailability } from "@/lib/locationAvailability";
 import { dataUrlToObjectUrl, shouldStoreDocument, toDataUrl } from "@/lib/files";
 import { computeAttentionItems } from "@/lib/attention";
 import { applyRosterImport } from "@/lib/rosterProject";
@@ -514,13 +515,41 @@ export default function Home() {
       return result;
     }
 
+    // A script upload is occasionally a screenplay with a real contact
+    // directory attached (cast/crew emails, a location owner's phone) —
+    // the Script Breakdown Agent opportunistically pulls those into
+    // breakdown.cast[].email / breakdown.locations[].contact_* when
+    // they're genuinely present (see instructions.py). Merge them into
+    // the same castEmails/locationAvailability fields the roster-import
+    // and manual-entry paths already write to, so every entry point
+    // converges on the same place. Never overwrites a value someone
+    // already entered by hand.
+    const newBreakdown = result.breakdown ?? project.breakdown;
+    const mergedCastEmails = { ...project.castEmails };
+    const mergedLocationAvailability = { ...project.locationAvailability };
+    newBreakdown?.cast.forEach((c) => {
+      if (c.email && !mergedCastEmails[c.name]) mergedCastEmails[c.name] = c.email;
+    });
+    newBreakdown?.locations.forEach((l) => {
+      if (!l.contact_name && !l.contact_phone && !l.contact_email) return;
+      const existing = mergedLocationAvailability[l.name] ?? emptyAvailability(l.name);
+      mergedLocationAvailability[l.name] = {
+        ...existing,
+        contactName: existing.contactName || l.contact_name || "",
+        contactPhone: existing.contactPhone || l.contact_phone || "",
+        contactEmail: existing.contactEmail || l.contact_email || "",
+      };
+    });
+
     updateProject(project.id, {
-      breakdown: result.breakdown ?? project.breakdown,
+      breakdown: newBreakdown,
       schedule: result.schedule ?? project.schedule,
       locationResearch: { ...project.locationResearch, ...result.locationResearch },
       callSheets: result.callSheets ?? project.callSheets,
       castOutreach: result.castOutreach ?? project.castOutreach,
       feed: result.feed,
+      castEmails: mergedCastEmails,
+      locationAvailability: mergedLocationAvailability,
       updatedAt: Date.now(),
     });
     return result;

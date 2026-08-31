@@ -146,12 +146,23 @@ export interface CastMember {
   name: string;
   scene_count: number;
   role_size: string;
+  // Only present when the Script Breakdown Agent found a real email for
+  // this cast member alongside the script itself (e.g. a contact sheet
+  // attached to the PDF) — merged into Project.castEmails on upload, not
+  // read from here directly elsewhere. Empty/absent in the normal case.
+  email?: string;
 }
 
 export interface LocationEntry {
   name: string;
   scene_count: number;
   int_ext: string;
+  // Same idea as CastMember.email, for a location owner/manager contact
+  // found alongside the script — merged into Project.locationAvailability
+  // on upload. Empty/absent in the normal case.
+  contact_name?: string;
+  contact_phone?: string;
+  contact_email?: string;
 }
 
 export interface PropEntry {

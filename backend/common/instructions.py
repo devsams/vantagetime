@@ -84,10 +84,10 @@ JSON SHAPE (all fields required unless noted):
     }
   ],
   "cast": [
-    { "name": string, "scene_count": number, "role_size": string }
+    { "name": string, "scene_count": number, "role_size": string, "email": string } // email: "" unless a real address for this exact character/actor name is genuinely present somewhere in the document (e.g. a contact sheet attached after the script pages) — never invent one
   ],
   "locations": [
-    { "name": string, "scene_count": number, "int_ext": string }
+    { "name": string, "scene_count": number, "int_ext": string, "contact_name": string, "contact_phone": string, "contact_email": string } // contact_* fields: "" unless a real location owner/manager contact is genuinely present in the document — never invent
   ],
   "props": [
     { "name": string, "scene_count": number, "scenes": [number] }
@@ -148,14 +148,14 @@ script will have far more scenes):
     }
   ],
   "cast": [
-    { "name": "CASS", "scene_count": 3, "role_size": "lead" },
-    { "name": "MARCUS", "scene_count": 2, "role_size": "lead" },
-    { "name": "DENNY", "scene_count": 1, "role_size": "supporting" }
+    { "name": "CASS", "scene_count": 3, "role_size": "lead", "email": "" },
+    { "name": "MARCUS", "scene_count": 2, "role_size": "lead", "email": "" },
+    { "name": "DENNY", "scene_count": 1, "role_size": "supporting", "email": "" }
   ],
   "locations": [
-    { "name": "Lookout Tower", "scene_count": 1, "int_ext": "EXT" },
-    { "name": "Ridge Line", "scene_count": 1, "int_ext": "EXT" },
-    { "name": "Ranger Station", "scene_count": 1, "int_ext": "INT" }
+    { "name": "Lookout Tower", "scene_count": 1, "int_ext": "EXT", "contact_name": "", "contact_phone": "", "contact_email": "" },
+    { "name": "Ridge Line", "scene_count": 1, "int_ext": "EXT", "contact_name": "", "contact_phone": "", "contact_email": "" },
+    { "name": "Ranger Station", "scene_count": 1, "int_ext": "INT", "contact_name": "", "contact_phone": "", "contact_email": "" }
   ],
   "props": [
     { "name": "jacket", "scene_count": 1, "scenes": [1] },
@@ -221,7 +221,22 @@ SCRIPT_BREAKDOWN_INSTRUCTION = (
     "production data (a cast/crew/location list or schedule), not a "
     "screenplay — try the 'I have production data' upload option "
     "instead.\" This is a genuine, common mistake, not an edge case to "
-    "skip handling."
+    "skip handling.\n\n"
+    "OPTIONAL CONTACT INFO: some uploads are a screenplay with a real "
+    "contact directory attached to it — extra pages before or after the "
+    "script listing cast/crew names alongside phone numbers and email "
+    "addresses, or a location owner's contact details. This is still a "
+    "screenplay upload (do NOT treat it as the wrong-document-type case "
+    "above just because contact pages are attached). While you read the "
+    "document, if you genuinely see a real email address tied to a "
+    "specific cast member's name, put it in that cast entry's \"email\" "
+    "field; if you see a real contact name/phone/email tied to a "
+    "specific location, put it in that location entry's \"contact_name\"/"
+    "\"contact_phone\"/\"contact_email\" fields. This is opportunistic, "
+    "not required — leave every one of these fields as \"\" whenever the "
+    "document doesn't contain that information, which is the normal "
+    "case. Never invent, guess, or reuse an email/phone from one person "
+    "for another."
 )
 
 # ---------------------------------------------------------------------------
