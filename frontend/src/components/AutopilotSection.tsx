@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import StageHeader from "./StageHeader";
-import { fetchDateWindow, notifyLocationOwner, registerAvailabilityLinks, setDateWindow } from "@/lib/api";
+import {
+  fetchDateWindow,
+  notifyLocationOwner,
+  registerAvailabilityLinks,
+  registerLocationLinks,
+  setDateWindow,
+} from "@/lib/api";
 import { candidateBlockConflicts, emptyAvailability, locationsInUse, unreviewedLocations } from "@/lib/locationAvailability";
 import { draftLocationEmail } from "@/lib/locationOutreach";
 import { friendlyDate } from "@/lib/text";
@@ -77,6 +83,7 @@ export default function AutopilotSection({
   locationResearch,
   castOutreach,
   locationOutreach,
+  locationLinks,
   tasks,
   timeCards,
   payRates,
@@ -84,6 +91,7 @@ export default function AutopilotSection({
   onUpdateCastEmails,
   onUpdateLocationAvailability,
   onLinksGenerated,
+  onLocationLinksGenerated,
   onGoToStage,
 }: {
   projectName: string;
@@ -100,6 +108,7 @@ export default function AutopilotSection({
   locationResearch: Record<number, LocationResearch>;
   castOutreach: CastOutreach | null;
   locationOutreach: Record<string, LocationOutreachStatus>;
+  locationLinks: Record<string, string>;
   tasks: Task[];
   timeCards: TimeCard[];
   payRates: Record<string, PayRate>;
@@ -107,6 +116,7 @@ export default function AutopilotSection({
   onUpdateCastEmails: (emails: Record<string, string>) => void;
   onUpdateLocationAvailability: (v: Record<string, LocationAvailability>) => void;
   onLinksGenerated: (links: Record<string, string>) => void;
+  onLocationLinksGenerated: (links: Record<string, string>) => void;
   onGoToStage: (stage: StageKey) => void;
 }) {
   const [dateWindow, setWindowState] = useState<DateWindow | null>(null);
@@ -120,6 +130,7 @@ export default function AutopilotSection({
   const [sendingLocation, setSendingLocation] = useState<string | null>(null);
   const [copiedLocation, setCopiedLocation] = useState<string | null>(null);
   const [sendingCastLinks, setSendingCastLinks] = useState(false);
+  const [sendingLocationLinks, setSendingLocationLinks] = useState(false);
 
   // Inline "the agent got stuck, here's what it needs" fields — kept as
   // local drafts (not written to the project) until explicitly saved, same
@@ -226,12 +237,56 @@ export default function AutopilotSection({
   // Same reasoning as cast outreach's "Copy email" — no live SMTP relay
   // is required to actually reach the location owner: paste this into
   // whatever mail client already works (Gmail, Outlook, etc.) instead
-  // of depending on this backend's SMTP config being wired up.
+  // of depending on this backend's SMTP config being wired up. Appends
+  // the real confirm link once one's been generated, same as
+  // copyCastEmail does for actors.
   function copyLocationEmail(location: string, to: string) {
     const { subject, body } = draftFor(location);
-    navigator.clipboard.writeText(`To: ${to}\nSubject: ${subject}\n\n${body}`);
+    const token = locationLinks[location];
+    const fullBody = token ? `${body}\n\nConfirm here: ${window.location.origin}/locations/${token}` : body;
+    navigator.clipboard.writeText(`To: ${to}\nSubject: ${subject}\n\n${fullBody}`);
     setCopiedLocation(location);
     setTimeout(() => setCopiedLocation(null), 1500);
+  }
+
+  /** Real per-day schedule for this exact location — day number, real
+   * date if the shoot window is locked (else ""), pulled straight from
+   * the validated schedule, never guessed. */
+  function locationScheduledDays(location: string): { day_number: number; date: string; hours_needed: number }[] {
+    return (schedule?.shoot_days ?? [])
+      .filter((d) => d.locations.includes(location))
+      .map((d) => ({ day_number: d.day_number, date: d.date, hours_needed: 0 }));
+  }
+
+  /** Mirrors handleSendActorOutreach: generates one real magic link per
+   * location that has a contact email on file, so the owner can confirm
+   * (or flag an issue with) their scheduled days themselves — no SMTP
+   * relay required for the confirmation to actually work, only for the
+   * optional courtesy email pointing at it. */
+  async function handleSendLocationLinks() {
+    const eligible = usedLocations.filter((loc) => locationAvailability[loc]?.contactEmail?.trim());
+    if (eligible.length === 0) return;
+    setSendingLocationLinks(true);
+    try {
+      const result = await registerLocationLinks(
+        sessionId,
+        projectName,
+        eligible.map((loc) => {
+          const { subject, body } = draftFor(loc);
+          return {
+            name: loc,
+            scheduled_days: locationScheduledDays(loc),
+            email: locationAvailability[loc]?.contactEmail ?? "",
+            email_subject: subject,
+            email_body: body,
+          };
+        })
+      );
+      onLocationLinksGenerated(result.links);
+    } catch {
+      // Leaves prior link state visible — nothing silently lost.
+    }
+    setSendingLocationLinks(false);
   }
 
   async function handleSendActorOutreach() {
@@ -486,7 +541,7 @@ export default function AutopilotSection({
                           rows={4}
                           className="mt-1.5 w-full rounded-md border border-edge bg-panel px-2 py-1 text-[11px] text-ink focus:border-accent focus:outline-none"
                         />
-                        <div className="mt-1.5 flex items-center gap-2">
+                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
                           <button
                             onClick={() => copyLocationEmail(loc, to)}
                             className="tracked rounded-full border border-edge px-3 py-1 text-[10px] uppercase text-faint transition hover:text-accent"
@@ -500,6 +555,18 @@ export default function AutopilotSection({
                           >
                             {sendingLocation === loc ? "Sending..." : status?.sent ? "Resend to " + to : "Send to " + to}
                           </button>
+                          {locationLinks[loc] ? (
+                            <a
+                              href={`/locations/${locationLinks[loc]}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[10px] text-faint underline underline-offset-2 hover:text-accent"
+                            >
+                              Open location link →
+                            </a>
+                          ) : (
+                            <span className="text-[10px] text-faint">Generate links first</span>
+                          )}
                           {status?.lastError && <span className="text-[10px] text-coral">{status.lastError}</span>}
                         </div>
                       </>
@@ -553,6 +620,13 @@ export default function AutopilotSection({
                   </div>
                 );
               })}
+              <button
+                onClick={handleSendLocationLinks}
+                disabled={sendingLocationLinks || !usedLocations.some((l) => locationAvailability[l]?.contactEmail?.trim())}
+                className="tracked mt-1 rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-[10px] uppercase text-accent transition hover:bg-accent/20 disabled:opacity-50"
+              >
+                {sendingLocationLinks ? "Generating..." : "Generate location links"}
+              </button>
             </div>
           )}
         </StepCard>

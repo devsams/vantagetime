@@ -380,6 +380,25 @@ export interface ActorView {
   days: ActorViewDay[];
 }
 
+// --- Location owner magic-link flow (plain REST, same shape as the
+// actor availability flow above, trimmed to what a location actually
+// needs — confirm/decline per scheduled day, no priority-ladder date
+// picking, since locations don't participate in that negotiation). ---
+
+export interface LocationViewDay {
+  day_number: number;
+  date: string; // "YYYY-MM-DD", empty if no shoot window has been set yet
+  hours_needed: number;
+  confirmed: boolean;
+  declined: boolean;
+}
+
+export interface LocationView {
+  project_name: string;
+  location_name: string;
+  days: LocationViewDay[];
+}
+
 // --- Calendar sync roster (frontend-only, not part of the agent pipeline) ---
 
 export interface CrewMember {
@@ -547,11 +566,13 @@ export interface Project {
   // cards show hours but no computed pay until one is entered.
   payRates: Record<string, PayRate>;
   timeCards: TimeCard[];
-  // Per-location owner outreach status, keyed by location name — see
-  // Autopilot. Separate from availabilityLinks (that's cast/crew/other,
-  // which get a real magic-link and response tracking; a location owner
-  // just gets a one-way notification email, no link, no response UI).
+  // Per-location owner outreach status (the direct-SMTP-send path),
+  // keyed by location name — see Autopilot.
   locationOutreach: Record<string, LocationOutreachStatus>;
+  // Location owner magic links — same shape and purpose as
+  // availabilityLinks, just keyed by location name instead of a
+  // person's name (see LocationView / /locations/[token]).
+  locationLinks: Record<string, string>;
   // See ProjectStatus — set by the filmmaker, drives which dashboard tab
   // (Live / In Progress / Archive) a project shows up in.
   status: ProjectStatus;

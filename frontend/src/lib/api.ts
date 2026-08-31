@@ -11,6 +11,7 @@ import type {
   DateWindow,
   FeedStep,
   LocationResearch,
+  LocationView,
   OutreachScheduledDay,
   Project,
   ProposedPeriod,
@@ -452,6 +453,67 @@ export async function fetchConfirmations(sessionId: string): Promise<Confirmatio
   const res = await fetch(`${API_BASE}/availability/session/${sessionId}/confirmations`);
   if (!res.ok) return [];
   return res.json();
+}
+
+// --- Location owner magic-link flow (plain REST, same shape as the
+// actor availability flow above — see location_outreach_routes.py) ---
+
+export interface RegisterLocationInput {
+  name: string;
+  scheduled_days: { day_number: number; date: string; hours_needed: number }[];
+  // Same as RegisterActorInput: all three present -> a real email
+  // actually goes out (best-effort); any missing -> registration still
+  // succeeds and the frontend falls back to "Copy email".
+  email?: string;
+  email_subject?: string;
+  email_body?: string;
+}
+
+export async function registerLocationLinks(
+  sessionId: string,
+  projectName: string,
+  locations: RegisterLocationInput[]
+): Promise<RegisterResult> {
+  const res = await fetch(`${API_BASE}/locations/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      session_id: sessionId,
+      project_name: projectName,
+      locations,
+      frontend_base_url: typeof window !== "undefined" ? window.location.origin : "",
+    }),
+  });
+  if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+  const items: { name: string; token: string; email_sent: boolean; email_status: string }[] = await res.json();
+  return {
+    links: Object.fromEntries(items.map((i) => [i.name, i.token])),
+    emailStatus: Object.fromEntries(items.map((i) => [i.name, { sent: i.email_sent, status: i.email_status }])),
+  };
+}
+
+export async function fetchLocationView(token: string): Promise<LocationView | null> {
+  const res = await fetch(`${API_BASE}/locations/confirm/${token}`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function confirmLocationDay(token: string, dayNumber: number): Promise<boolean> {
+  const res = await fetch(`${API_BASE}/locations/confirm/${token}/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ day_number: dayNumber }),
+  });
+  return res.ok;
+}
+
+export async function declineLocationDay(token: string, dayNumber: number, reason = ""): Promise<boolean> {
+  const res = await fetch(`${API_BASE}/locations/confirm/${token}/decline`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ day_number: dayNumber, reason }),
+  });
+  return res.ok;
 }
 
 // --- Chat command center (plain REST, not ADK — see backend/common/chat_routes.py) ---
