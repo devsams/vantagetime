@@ -118,6 +118,7 @@ export default function AutopilotSection({
 
   const [drafts, setDrafts] = useState<Record<string, { subject: string; body: string }>>({});
   const [sendingLocation, setSendingLocation] = useState<string | null>(null);
+  const [copiedLocation, setCopiedLocation] = useState<string | null>(null);
   const [sendingCastLinks, setSendingCastLinks] = useState(false);
 
   // Inline "the agent got stuck, here's what it needs" fields — kept as
@@ -220,6 +221,17 @@ export default function AutopilotSection({
       [location]: { sent: result.sent, sentAt: result.sent ? Date.now() : null, lastError: result.reason ?? undefined },
     });
     setSendingLocation(null);
+  }
+
+  // Same reasoning as cast outreach's "Copy email" — no live SMTP relay
+  // is required to actually reach the location owner: paste this into
+  // whatever mail client already works (Gmail, Outlook, etc.) instead
+  // of depending on this backend's SMTP config being wired up.
+  function copyLocationEmail(location: string, to: string) {
+    const { subject, body } = draftFor(location);
+    navigator.clipboard.writeText(`To: ${to}\nSubject: ${subject}\n\n${body}`);
+    setCopiedLocation(location);
+    setTimeout(() => setCopiedLocation(null), 1500);
   }
 
   async function handleSendActorOutreach() {
@@ -475,6 +487,12 @@ export default function AutopilotSection({
                           className="mt-1.5 w-full rounded-md border border-edge bg-panel px-2 py-1 text-[11px] text-ink focus:border-accent focus:outline-none"
                         />
                         <div className="mt-1.5 flex items-center gap-2">
+                          <button
+                            onClick={() => copyLocationEmail(loc, to)}
+                            className="tracked rounded-full border border-edge px-3 py-1 text-[10px] uppercase text-faint transition hover:text-accent"
+                          >
+                            {copiedLocation === loc ? "Copied!" : "Copy email"}
+                          </button>
                           <button
                             onClick={() => sendLocationEmail(loc)}
                             disabled={sendingLocation === loc}
