@@ -1,4 +1,4 @@
-import { locationsInUse, unreviewedLocations } from "./locationAvailability";
+import { unreviewedLocations } from "./locationAvailability";
 import { Project } from "./types";
 
 export interface AttentionItem {
@@ -27,31 +27,11 @@ export function computeAttentionItems(project: Project): AttentionItem[] {
   }
 
   const locationAvailability = project.locationAvailability ?? {};
-  const usedLocations = locationsInUse(breakdown, project.schedule);
   const unreviewed = unreviewedLocations(breakdown, project.schedule, locationAvailability);
   if (unreviewed.length > 0) {
     items.push({
       id: "unreviewed-locations",
       label: `${unreviewed.length} location${unreviewed.length === 1 ? "" : "s"} need${unreviewed.length === 1 ? "s" : ""} review`,
-    });
-  }
-
-  const locationOutreach = project.locationOutreach ?? {};
-  const missingContacts = usedLocations.filter((l) => !locationAvailability[l]?.contactEmail);
-  if (missingContacts.length > 0) {
-    items.push({
-      id: "missing-location-contacts",
-      label: `${missingContacts.length} location${missingContacts.length === 1 ? "" : "s"} missing a contact email`,
-    });
-  }
-
-  const notSentToOwners = usedLocations.filter(
-    (l) => locationAvailability[l]?.contactEmail && !locationOutreach[l]?.sent
-  );
-  if (notSentToOwners.length > 0) {
-    items.push({
-      id: "location-outreach-pending",
-      label: `${notSentToOwners.length} location owner${notSentToOwners.length === 1 ? "" : "s"} not yet notified`,
     });
   }
 

@@ -2,15 +2,8 @@
 
 import { useEffect, useState } from "react";
 import StageHeader from "./StageHeader";
-import {
-  fetchDateWindow,
-  notifyLocationOwner,
-  registerAvailabilityLinks,
-  registerLocationLinks,
-  setDateWindow,
-} from "@/lib/api";
+import { fetchDateWindow, registerAvailabilityLinks, setDateWindow } from "@/lib/api";
 import { candidateBlockConflicts, emptyAvailability, locationsInUse, unreviewedLocations } from "@/lib/locationAvailability";
-import { draftLocationEmail } from "@/lib/locationOutreach";
 import { friendlyDate } from "@/lib/text";
 import { computeHoursWorked, computePay, formatCurrency } from "@/lib/timecards";
 import {
@@ -20,7 +13,6 @@ import {
   CrewMember,
   DateWindow,
   LocationAvailability,
-  LocationOutreachStatus,
   LocationResearch,
   PayRate,
   ProposedPeriod,
@@ -82,16 +74,12 @@ export default function AutopilotSection({
   locationAvailability,
   locationResearch,
   castOutreach,
-  locationOutreach,
-  locationLinks,
   tasks,
   timeCards,
   payRates,
-  onUpdateLocationOutreach,
   onUpdateCastEmails,
   onUpdateLocationAvailability,
   onLinksGenerated,
-  onLocationLinksGenerated,
   onGoToStage,
 }: {
   projectName: string;
@@ -107,16 +95,12 @@ export default function AutopilotSection({
   locationAvailability: Record<string, LocationAvailability>;
   locationResearch: Record<number, LocationResearch>;
   castOutreach: CastOutreach | null;
-  locationOutreach: Record<string, LocationOutreachStatus>;
-  locationLinks: Record<string, string>;
   tasks: Task[];
   timeCards: TimeCard[];
   payRates: Record<string, PayRate>;
-  onUpdateLocationOutreach: (v: Record<string, LocationOutreachStatus>) => void;
   onUpdateCastEmails: (emails: Record<string, string>) => void;
   onUpdateLocationAvailability: (v: Record<string, LocationAvailability>) => void;
   onLinksGenerated: (links: Record<string, string>) => void;
-  onLocationLinksGenerated: (links: Record<string, string>) => void;
   onGoToStage: (stage: StageKey) => void;
 }) {
   const [dateWindow, setWindowState] = useState<DateWindow | null>(null);
@@ -126,18 +110,12 @@ export default function AutopilotSection({
   const [numShootDays, setNumShootDays] = useState(1);
   const [savingWindow, setSavingWindow] = useState(false);
 
-  const [drafts, setDrafts] = useState<Record<string, { subject: string; body: string }>>({});
-  const [sendingLocation, setSendingLocation] = useState<string | null>(null);
-  const [copiedLocation, setCopiedLocation] = useState<string | null>(null);
   const [sendingCastLinks, setSendingCastLinks] = useState(false);
-  const [sendingLocationLinks, setSendingLocationLinks] = useState(false);
 
   // Inline "the agent got stuck, here's what it needs" fields — kept as
-  // local drafts (not written to the project) until explicitly saved, same
-  // reasoning as `drafts` above for email text: nothing should overwrite
-  // real project state on every keystroke.
+  // local drafts (not written to the project) until explicitly saved:
+  // nothing should overwrite real project state on every keystroke.
   const [addressDrafts, setAddressDrafts] = useState<Record<string, string>>({});
-  const [contactDrafts, setContactDrafts] = useState<Record<string, { contactName: string; contactEmail: string }>>({});
   const [castEmailDrafts, setCastEmailDrafts] = useState<Record<string, string>>({});
 
   async function loadWindow() {
@@ -175,7 +153,7 @@ export default function AutopilotSection({
         <StageHeader
           index={1}
           title="Autopilot"
-          description="Walks the whole production end to end: cast/crew, shoot dates, location checks, owner outreach, actor outreach, then a full plan."
+          description="Walks the whole production end to end: cast/crew, shoot dates, location checks, actor outreach, then a full plan."
         />
         <p className="text-sm text-faint">Upload a script or production data first — see the dashboard.</p>
       </div>
@@ -185,7 +163,6 @@ export default function AutopilotSection({
   const usedLocations = locationsInUse(breakdown, schedule);
   const unreviewed = unreviewedLocations(breakdown, schedule, locationAvailability);
   const activeBlock = dateWindow?.locked_block ?? dateWindow?.candidate_blocks?.[0] ?? [];
-  const dateLabel = blockLabel(activeBlock);
   const conflicts = activeBlock.length > 0 ? candidateBlockConflicts(activeBlock, locationAvailability, usedLocations) : [];
 
   const castCount = breakdown.cast.length;
@@ -193,9 +170,6 @@ export default function AutopilotSection({
   const membersDone = castCount > 0 || crewCount > 0;
   const windowDone = !!dateWindow && (!!dateWindow.locked_block || dateWindow.candidate_blocks.length > 0);
   const locationsDone = usedLocations.length > 0 && unreviewed.length === 0 && conflicts.length === 0;
-  const outreachDone =
-    usedLocations.length === 0 ||
-    usedLocations.every((l) => locationOutreach[l]?.sent || !locationAvailability[l]?.contactEmail);
   const castLinksTotal = castOutreach?.cast_outreach.length ?? 0;
   const castLinksSent = castOutreach?.cast_outreach.filter((c) => !!availabilityLinks[c.name]).length ?? 0;
   const actorsDone = castLinksTotal > 0 && castLinksSent === castLinksTotal;
@@ -209,85 +183,6 @@ export default function AutopilotSection({
     const hours = computeHoursWorked(t.callTime, t.wrapTime, t.mealBreakMinutes);
     return sum + computePay(hours, payRates[t.personName]).totalPay;
   }, 0);
-
-  function draftFor(location: string): { subject: string; body: string } {
-    if (drafts[location]) return drafts[location];
-    const avail = locationAvailability[location];
-    return draftLocationEmail(projectName, location, avail?.contactName ?? "", dateLabel);
-  }
-
-  function patchDraft(location: string, patch: Partial<{ subject: string; body: string }>) {
-    setDrafts((prev) => ({ ...prev, [location]: { ...draftFor(location), ...patch } }));
-  }
-
-  async function sendLocationEmail(location: string) {
-    const avail = locationAvailability[location];
-    const to = avail?.contactEmail ?? "";
-    if (!to) return;
-    const { subject, body } = draftFor(location);
-    setSendingLocation(location);
-    const result = await notifyLocationOwner(sessionId, location, to, subject, body);
-    onUpdateLocationOutreach({
-      ...locationOutreach,
-      [location]: { sent: result.sent, sentAt: result.sent ? Date.now() : null, lastError: result.reason ?? undefined },
-    });
-    setSendingLocation(null);
-  }
-
-  // Same reasoning as cast outreach's "Copy email" — no live SMTP relay
-  // is required to actually reach the location owner: paste this into
-  // whatever mail client already works (Gmail, Outlook, etc.) instead
-  // of depending on this backend's SMTP config being wired up. Appends
-  // the real confirm link once one's been generated, same as
-  // copyCastEmail does for actors.
-  function copyLocationEmail(location: string, to: string) {
-    const { subject, body } = draftFor(location);
-    const token = locationLinks[location];
-    const fullBody = token ? `${body}\n\nConfirm here: ${window.location.origin}/locations/${token}` : body;
-    navigator.clipboard.writeText(`To: ${to}\nSubject: ${subject}\n\n${fullBody}`);
-    setCopiedLocation(location);
-    setTimeout(() => setCopiedLocation(null), 1500);
-  }
-
-  /** Real per-day schedule for this exact location — day number, real
-   * date if the shoot window is locked (else ""), pulled straight from
-   * the validated schedule, never guessed. */
-  function locationScheduledDays(location: string): { day_number: number; date: string; hours_needed: number }[] {
-    return (schedule?.shoot_days ?? [])
-      .filter((d) => d.locations.includes(location))
-      .map((d) => ({ day_number: d.day_number, date: d.date, hours_needed: 0 }));
-  }
-
-  /** Mirrors handleSendActorOutreach: generates one real magic link per
-   * location that has a contact email on file, so the owner can confirm
-   * (or flag an issue with) their scheduled days themselves — no SMTP
-   * relay required for the confirmation to actually work, only for the
-   * optional courtesy email pointing at it. */
-  async function handleSendLocationLinks() {
-    const eligible = usedLocations.filter((loc) => locationAvailability[loc]?.contactEmail?.trim());
-    if (eligible.length === 0) return;
-    setSendingLocationLinks(true);
-    try {
-      const result = await registerLocationLinks(
-        sessionId,
-        projectName,
-        eligible.map((loc) => {
-          const { subject, body } = draftFor(loc);
-          return {
-            name: loc,
-            scheduled_days: locationScheduledDays(loc),
-            email: locationAvailability[loc]?.contactEmail ?? "",
-            email_subject: subject,
-            email_body: body,
-          };
-        })
-      );
-      onLocationLinksGenerated(result.links);
-    } catch {
-      // Leaves prior link state visible — nothing silently lost.
-    }
-    setSendingLocationLinks(false);
-  }
 
   async function handleSendActorOutreach() {
     if (!castOutreach || castOutreach.cast_outreach.length === 0) return;
@@ -333,15 +228,6 @@ export default function AutopilotSection({
     patchLocationAvailability(name, { address, reviewed: true });
   }
 
-  function saveLocationContact(name: string) {
-    const draft = contactDrafts[name];
-    if (!draft) return;
-    patchLocationAvailability(name, {
-      contactName: draft.contactName.trim(),
-      contactEmail: draft.contactEmail.trim(),
-    });
-  }
-
   function saveCastEmail(name: string) {
     const email = (castEmailDrafts[name] ?? "").trim();
     if (!email) return;
@@ -353,7 +239,7 @@ export default function AutopilotSection({
       <StageHeader
         index={1}
         title="Autopilot"
-        description="Walks the whole production end to end: cast/crew, shoot dates, location checks, owner outreach, actor outreach, then a full plan. Every email is drafted for review — nothing sends without you clicking Send."
+        description="Walks the whole production end to end: cast/crew, shoot dates, location checks, actor outreach, then a full plan. Every email is drafted for review — nothing sends without you clicking Send."
       />
 
       <div className="space-y-4">
@@ -497,142 +383,6 @@ export default function AutopilotSection({
 
         <StepCard
           n={4}
-          title="Notify location owners"
-          status={usedLocations.length === 0 ? "pending" : outreachDone ? "done" : "attention"}
-        >
-          {usedLocations.length === 0 ? (
-            <p className="text-xs text-faint">No locations yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {usedLocations.map((loc) => {
-                const avail = locationAvailability[loc];
-                const to = avail?.contactEmail ?? "";
-                const draft = draftFor(loc);
-                const status = locationOutreach[loc];
-                return (
-                  <div key={loc} className="rounded-lg border border-edge/60 bg-panel2 p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-ink">{loc}</span>
-                      {status?.sent ? (
-                        <span className="tracked rounded-full border border-accent/50 bg-accent/10 px-2 py-0.5 text-[9px] uppercase text-accent">
-                          Sent
-                        </span>
-                      ) : to ? (
-                        <span className="tracked rounded-full border border-edge px-2 py-0.5 text-[9px] uppercase text-faint">
-                          Not sent
-                        </span>
-                      ) : (
-                        <span className="tracked rounded-full border border-amber/50 bg-amber/10 px-2 py-0.5 text-[9px] uppercase text-amber">
-                          No contact email
-                        </span>
-                      )}
-                    </div>
-                    {to && (
-                      <>
-                        <input
-                          type="text"
-                          value={draft.subject}
-                          onChange={(e) => patchDraft(loc, { subject: e.target.value })}
-                          className="mt-2 w-full rounded-md border border-edge bg-panel px-2 py-1 text-[11px] text-ink focus:border-accent focus:outline-none"
-                        />
-                        <textarea
-                          value={draft.body}
-                          onChange={(e) => patchDraft(loc, { body: e.target.value })}
-                          rows={4}
-                          className="mt-1.5 w-full rounded-md border border-edge bg-panel px-2 py-1 text-[11px] text-ink focus:border-accent focus:outline-none"
-                        />
-                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                          <button
-                            onClick={() => copyLocationEmail(loc, to)}
-                            className="tracked rounded-full border border-edge px-3 py-1 text-[10px] uppercase text-faint transition hover:text-accent"
-                          >
-                            {copiedLocation === loc ? "Copied!" : "Copy email"}
-                          </button>
-                          <button
-                            onClick={() => sendLocationEmail(loc)}
-                            disabled={sendingLocation === loc}
-                            className="tracked rounded-full border border-accent/40 bg-accent/10 px-3 py-1 text-[10px] uppercase text-accent transition hover:bg-accent/20 disabled:opacity-50"
-                          >
-                            {sendingLocation === loc ? "Sending..." : status?.sent ? "Resend to " + to : "Send to " + to}
-                          </button>
-                          {locationLinks[loc] ? (
-                            <a
-                              href={`/locations/${locationLinks[loc]}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[10px] text-faint underline underline-offset-2 hover:text-accent"
-                            >
-                              Open location link →
-                            </a>
-                          ) : (
-                            <span className="text-[10px] text-faint">Generate links first</span>
-                          )}
-                          {status?.lastError && <span className="text-[10px] text-coral">{status.lastError}</span>}
-                        </div>
-                      </>
-                    )}
-                    {!to && (
-                      <div className="mt-2 space-y-1.5">
-                        <p className="text-[10px] text-amber">
-                          Who do we contact for {loc}? Add their info to draft an email.
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          <input
-                            type="text"
-                            value={contactDrafts[loc]?.contactName ?? avail?.contactName ?? ""}
-                            onChange={(e) =>
-                              setContactDrafts((prev) => ({
-                                ...prev,
-                                [loc]: {
-                                  contactName: e.target.value,
-                                  contactEmail: prev[loc]?.contactEmail ?? avail?.contactEmail ?? "",
-                                },
-                              }))
-                            }
-                            placeholder="Owner / manager name"
-                            className="min-w-[140px] flex-1 rounded-md border border-edge bg-panel2 px-2 py-1 text-[11px] text-ink placeholder:text-faint focus:border-accent focus:outline-none"
-                          />
-                          <input
-                            type="email"
-                            value={contactDrafts[loc]?.contactEmail ?? avail?.contactEmail ?? ""}
-                            onChange={(e) =>
-                              setContactDrafts((prev) => ({
-                                ...prev,
-                                [loc]: {
-                                  contactName: prev[loc]?.contactName ?? avail?.contactName ?? "",
-                                  contactEmail: e.target.value,
-                                },
-                              }))
-                            }
-                            placeholder="Contact email"
-                            className="min-w-[160px] flex-1 rounded-md border border-edge bg-panel2 px-2 py-1 text-[11px] text-ink placeholder:text-faint focus:border-accent focus:outline-none"
-                          />
-                          <button
-                            onClick={() => saveLocationContact(loc)}
-                            disabled={!contactDrafts[loc]?.contactEmail?.trim()}
-                            className="tracked rounded-full border border-accent/40 bg-accent/10 px-3 py-1 text-[10px] uppercase text-accent transition hover:bg-accent/20 disabled:opacity-40"
-                          >
-                            Save
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              <button
-                onClick={handleSendLocationLinks}
-                disabled={sendingLocationLinks || !usedLocations.some((l) => locationAvailability[l]?.contactEmail?.trim())}
-                className="tracked mt-1 rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-[10px] uppercase text-accent transition hover:bg-accent/20 disabled:opacity-50"
-              >
-                {sendingLocationLinks ? "Generating..." : "Generate location links"}
-              </button>
-            </div>
-          )}
-        </StepCard>
-
-        <StepCard
-          n={5}
           title="Notify actors"
           status={castLinksTotal === 0 ? "pending" : actorsDone ? "done" : "attention"}
         >
@@ -681,7 +431,7 @@ export default function AutopilotSection({
           )}
         </StepCard>
 
-        <StepCard n={6} title="Full plan" status={planDone ? "done" : "pending"}>
+        <StepCard n={5} title="Full plan" status={planDone ? "done" : "pending"}>
           {planDone ? (
             <>
               <p className="text-xs text-accent">✓ Real dates assigned and call sheets generated.</p>
@@ -705,7 +455,7 @@ export default function AutopilotSection({
           )}
         </StepCard>
 
-        <StepCard n={7} title="Tasks" status={tasks.length === 0 ? "pending" : tasksDone ? "done" : "attention"}>
+        <StepCard n={6} title="Tasks" status={tasks.length === 0 ? "pending" : tasksDone ? "done" : "attention"}>
           {tasks.length === 0 ? (
             <p className="text-xs text-faint">No tasks added yet.</p>
           ) : (
@@ -722,7 +472,7 @@ export default function AutopilotSection({
         </StepCard>
 
         <StepCard
-          n={8}
+          n={7}
           title="Time cards"
           status={timeCards.length === 0 ? "pending" : timeCardsDone ? "done" : "attention"}
         >

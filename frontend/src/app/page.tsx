@@ -937,14 +937,9 @@ export default function Home() {
               locationAvailability={activeProject.locationAvailability ?? {}}
               locationResearch={activeProject.locationResearch ?? {}}
               castOutreach={activeProject.castOutreach}
-              locationOutreach={activeProject.locationOutreach ?? {}}
-              locationLinks={activeProject.locationLinks ?? {}}
               tasks={activeProject.tasks ?? []}
               timeCards={activeProject.timeCards ?? []}
               payRates={activeProject.payRates ?? {}}
-              onUpdateLocationOutreach={(locationOutreach) =>
-                updateProject(activeProject.id, { locationOutreach })
-              }
               onUpdateCastEmails={(castEmails) => updateProject(activeProject.id, { castEmails })}
               onUpdateLocationAvailability={(locationAvailability) =>
                 updateProject(activeProject.id, { locationAvailability })
@@ -952,11 +947,6 @@ export default function Home() {
               onLinksGenerated={(links) =>
                 updateProject(activeProject.id, {
                   availabilityLinks: { ...(activeProject.availabilityLinks ?? {}), ...links },
-                })
-              }
-              onLocationLinksGenerated={(links) =>
-                updateProject(activeProject.id, {
-                  locationLinks: { ...(activeProject.locationLinks ?? {}), ...links },
                 })
               }
               onGoToStage={setActiveStage}
