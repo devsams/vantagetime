@@ -114,6 +114,18 @@ anyway for a different backend URL.
 
 The deploying service account needs Firestore and Cloud Storage access in `<your-project-id>` (`roles/datastore.user`, `roles/storage.objectAdmin`).
 
+## Reproducible testing
+
+Try the **live deployed app** directly — no local setup needed: `https://vantagetime-frontend-425496362782.us-central1.run.app`
+
+1. **Breakdown** — click "I have a script" and upload `test_data/Expanded_Ensemble_Script_v2.pdf` from this repo (a real 4-scene screenplay with a production contact directory attached), or your own script PDF. Within roughly a minute the pipeline runs Script Breakdown → Location Research → Scheduling → Call Sheet → Availability. Confirms real Gemini/ADK usage: scenes, cast, and locations are actually extracted from the PDF (check the Members tab — cast emails are pulled straight from the attached directory, never invented, and left blank when none is present).
+2. **Location research** — Production Plan tab → Location Research sub-tab: each location shows permit/weather/logistics notes with real source URLs — confirms the Parallel Search API is actually called at runtime, not canned.
+3. **Call sheet** — Call Sheet tab: weather, sunrise/sunset, and page-count fractions (e.g. "1 1/8") per day — confirms `get_weather` (Open-Meteo) is a live call, not a placeholder.
+4. **Autopilot** — the Autopilot tab walks through Members → Shoot dates → Check locations → Notify location owners → Notify actors → Full plan, and won't mark a step done until the real action behind it happened (an email actually sent, a link actually generated).
+5. **Magic links** — in Autopilot, "Notify location owners" or "Notify actors" → "Generate links" opens a real `/locations/<token>` or `/availability/<token>` page where the recipient can confirm or flag a conflict against real scheduled dates — works independently of whether outreach email delivery (SMTP) is configured.
+
+A second, larger 6-scene test script (`test_data/LOCKED IN.pdf`) is also in the repo if you want to see a bigger schedule (multiple shoot days, more locations, a real validator conflict or two).
+
 ## Status
 
 Feature-complete: the full pipeline (breakdown → location research → scheduling/validation → call sheet → availability drafting), plus Autopilot, Stripboard/DOOD, Time Cards/Payroll, and the actor/crew availability + date-locking layer described above, all work end to end locally.
