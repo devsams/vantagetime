@@ -78,6 +78,7 @@ function newProject(name: string): Project {
     payRates: {},
     timeCards: [],
     locationOutreach: {},
+    locationLinks: {},
     status: "inProgress",
   };
 }
@@ -937,6 +938,7 @@ export default function Home() {
               locationResearch={activeProject.locationResearch ?? {}}
               castOutreach={activeProject.castOutreach}
               locationOutreach={activeProject.locationOutreach ?? {}}
+              locationLinks={activeProject.locationLinks ?? {}}
               tasks={activeProject.tasks ?? []}
               timeCards={activeProject.timeCards ?? []}
               payRates={activeProject.payRates ?? {}}
@@ -950,6 +952,11 @@ export default function Home() {
               onLinksGenerated={(links) =>
                 updateProject(activeProject.id, {
                   availabilityLinks: { ...(activeProject.availabilityLinks ?? {}), ...links },
+                })
+              }
+              onLocationLinksGenerated={(links) =>
+                updateProject(activeProject.id, {
+                  locationLinks: { ...(activeProject.locationLinks ?? {}), ...links },
                 })
               }
               onGoToStage={setActiveStage}
